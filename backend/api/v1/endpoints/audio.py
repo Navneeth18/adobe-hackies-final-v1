@@ -1,11 +1,18 @@
 from fastapi import APIRouter, HTTPException, Request
 from typing import Dict, List, Optional
 from services.tts_service import tts_service
+from services.enhanced_podcast_service import enhanced_podcast_service
+from pydantic import BaseModel
 import os
 import logging
 
 router = APIRouter(prefix="/audio")
 logger = logging.getLogger(__name__)
+
+class MultilingualPodcastRequest(BaseModel):
+    document_id: str
+    language: str = "en"
+    summarize: bool = True
 
 @router.post("/generate-podcast")
 async def generate_podcast(request: Dict):
@@ -94,4 +101,89 @@ async def serve_audio_file(audio_id: str):
         raise he
     except Exception as e:
         logger.error(f"Error serving audio file: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/generate-multilingual-podcast")
+async def generate_multilingual_podcast(request: MultilingualPodcastRequest):
+    """Generate a multilingual podcast from PDF document"""
+    try:
+        # Get the PDF file path from document ID
+        pdf_path = f"pdf_storage/{request.document_id}.pdf"
+
+        if not os.path.exists(pdf_path):
+            raise HTTPException(status_code=404, detail="PDF document not found")
+
+        # Generate multilingual podcast
+        result = await enhanced_podcast_service.generate_multilingual_podcast_from_pdf(
+            pdf_path=pdf_path,
+            language=request.language,
+            summarize=request.summarize
+        )
+
+        if not result["success"]:
+            raise HTTPException(status_code=500, detail=result.get("error", "Failed to generate podcast"))
+
+        return {
+            "success": True,
+            "audio_id": result["audio_id"],
+            "language": result["language"],
+            "language_name": result["language_name"],
+            "file_size": result["file_size"],
+            "summarized": result["summarized"],
+            "message": f"Multilingual podcast generated successfully in {result['language_name']}"
+        }
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error generating multilingual podcast: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/supported-languages")
+async def get_supported_languages():
+    """Get list of supported languages for multilingual podcasts"""
+    try:
+        languages = enhanced_podcast_service.get_supported_languages()
+        return {
+            "success": True,
+            "languages": languages,
+            "total_languages": len(languages)
+        }
+    except Exception as e:
+        logger.error(f"Error getting supported languages: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/serve-multilingual/{audio_id}")
+@router.head("/serve-multilingual/{audio_id}")
+async def serve_multilingual_audio_file(audio_id: str):
+    """Serve multilingual podcast audio file"""
+    from fastapi.responses import FileResponse
+    try:
+        # Try different possible filenames and locations
+        possible_files = [
+            f"podcasts/podcast_{audio_id}.mp3",
+            f"multilingual_podcast_{audio_id}.mp3",
+            f"podcast_{audio_id}.mp3",
+            f"{audio_id}.mp3"
+        ]
+
+        audio_path = None
+        for file_path in possible_files:
+            if os.path.exists(file_path):
+                audio_path = file_path
+                break
+
+        if audio_path:
+            return FileResponse(
+                audio_path,
+                media_type="audio/mpeg",
+                filename=f"multilingual_podcast_{audio_id}.mp3"
+            )
+        else:
+            raise HTTPException(status_code=404, detail="Multilingual audio file not found")
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error serving multilingual audio file: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

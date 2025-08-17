@@ -255,4 +255,51 @@ export const apiService = {
       throw error;
     }
   },
+
+  // Generate multilingual podcast from PDF
+  generateMultilingualPodcast: async (documentId, language = 'en', summarize = true) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/audio/generate-multilingual-podcast`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          document_id: documentId,
+          language: language,
+          summarize: summarize
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Multilingual podcast generation failed: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error generating multilingual podcast:', error);
+      throw error;
+    }
+  },
+
+  // Get supported languages for multilingual podcasts
+  getSupportedLanguages: async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/audio/supported-languages`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to get supported languages: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting supported languages:', error);
+      throw error;
+    }
+  },
 };

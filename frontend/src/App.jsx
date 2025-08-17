@@ -41,10 +41,30 @@ function App() {
   const [isGeneratingPodcast, setIsGeneratingPodcast] = useState(false);
   const [podcastAudioUrl, setPodcastAudioUrl] = useState(null);
 
-  // Fetch uploaded documents on component mount
+  // Multilingual podcast state
+  const [supportedLanguages, setSupportedLanguages] = useState({});
+  const [selectedLanguage, setSelectedLanguage] = useState('en');
+  const [isGeneratingMultilingualPodcast, setIsGeneratingMultilingualPodcast] = useState(false);
+  const [multilingualPodcastUrl, setMultilingualPodcastUrl] = useState(null);
+  const [multilingualPodcastId, setMultilingualPodcastId] = useState(null);
+
+  // Fetch uploaded documents and supported languages on component mount
   useEffect(() => {
     fetchUploadedDocuments();
+    fetchSupportedLanguages();
   }, []);
+
+  // Fetch supported languages for multilingual podcasts
+  const fetchSupportedLanguages = async () => {
+    try {
+      const result = await apiService.getSupportedLanguages();
+      if (result.success) {
+        setSupportedLanguages(result.languages);
+      }
+    } catch (error) {
+      console.error('Failed to fetch supported languages:', error);
+    }
+  };
 
   // Fetch uploaded documents from backend
   const fetchUploadedDocuments = async () => {
@@ -325,6 +345,45 @@ function App() {
       toast.error(`Failed to generate podcast: ${error.message}`);
     } finally {
       setIsGeneratingPodcast(false);
+    }
+  };
+
+  // Handle multilingual podcast generation from PDF
+  const handleGenerateMultilingualPodcast = async (documentId) => {
+    if (!documentId) {
+      toast.error("Please select a document first");
+      return;
+    }
+
+    setIsGeneratingMultilingualPodcast(true);
+    setMultilingualPodcastUrl(null);
+
+    try {
+      const languageName = supportedLanguages[selectedLanguage] || selectedLanguage;
+      toast.loading(`Generating podcast in ${languageName}...`);
+
+      const result = await apiService.generateMultilingualPodcast(
+        documentId,
+        selectedLanguage,
+        true // Always summarize for better podcast experience
+      );
+
+      if (result.success && result.audio_id) {
+        setMultilingualPodcastId(result.audio_id);
+
+        // Set the audio URL to the multilingual serving endpoint
+        setMultilingualPodcastUrl(`http://localhost:8000/api/v1/audio/serve-multilingual/${result.audio_id}`);
+        toast.dismiss();
+        toast.success(`Podcast generated successfully in ${result.language_name}!`);
+      } else {
+        throw new Error(result.error || "Failed to generate multilingual podcast");
+      }
+    } catch (error) {
+      console.error("Failed to generate multilingual podcast:", error);
+      toast.dismiss();
+      toast.error(`Failed to generate podcast: ${error.message}`);
+    } finally {
+      setIsGeneratingMultilingualPodcast(false);
     }
   };
 
@@ -759,6 +818,20 @@ function App() {
             </div>
           )}
 
+          {/* Multilingual Podcast Player */}
+          {multilingualPodcastUrl && (
+            <div className="bg-white rounded p-4 shadow mb-4">
+              <h3 className="font-medium mb-2">🌍 Multilingual Podcast</h3>
+              <div className="text-sm text-gray-600 mb-2">
+                Language: {supportedLanguages[selectedLanguage] || selectedLanguage}
+              </div>
+              <audio controls className="w-full" src={multilingualPodcastUrl}></audio>
+              <div className="text-xs text-gray-500 mt-2">
+                Audio ID: {multilingualPodcastId}
+              </div>
+            </div>
+          )}
+
           {/* Analysis Tabs */}
           <div className="bg-white rounded shadow mb-4">
             <div className="flex border-b border-gray-200">
@@ -943,6 +1016,61 @@ function App() {
                       💡 Multiple documents selected - audio will include cross-document insights
                     </p>
                   )}
+
+                  {/* Multilingual Podcast Section */}
+                  <div className="border-t mt-6 pt-6">
+                    <div className="text-center">
+                      <div className="text-3xl mb-3">🌍</div>
+                      <h3 className="font-medium mb-3">Multilingual PDF Podcast</h3>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Generate a complete podcast from the entire PDF document in your preferred language.
+                      </p>
+
+                      {/* Language Selection */}
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Select Language:
+                        </label>
+                        <select
+                          value={selectedLanguage}
+                          onChange={(e) => setSelectedLanguage(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {Object.entries(supportedLanguages).map(([code, name]) => (
+                            <option key={code} value={code}>
+                              {name} ({code})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Generate Button */}
+                      {activeDocumentTab ? (
+                        <button
+                          onClick={() => handleGenerateMultilingualPodcast(activeDocumentTab)}
+                          disabled={isGeneratingMultilingualPodcast}
+                          className={`w-full py-3 px-4 rounded-lg text-white font-medium flex items-center justify-center ${
+                            isGeneratingMultilingualPodcast
+                              ? 'bg-gray-400 cursor-not-allowed'
+                              : 'bg-blue-500 hover:bg-blue-600'
+                          }`}
+                        >
+                          {isGeneratingMultilingualPodcast ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                              Generating Podcast...
+                            </>
+                          ) : (
+                            `🎧 Generate ${supportedLanguages[selectedLanguage] || 'Multilingual'} Podcast`
+                          )}
+                        </button>
+                      ) : (
+                        <div className="text-sm text-gray-500 bg-gray-50 p-4 rounded-lg">
+                          Select a document to generate multilingual podcast
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

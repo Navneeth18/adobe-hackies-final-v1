@@ -57,65 +57,79 @@ async def get_document_sections(document_id: str):
 async def semantic_search(request: dict):
     """Find relevant sections and snippets based on selected text"""
     try:
-        selected_text = request.get("selected_text", "")
+        selected_text = request.get("selected_text", "").strip()
         if not selected_text:
             raise HTTPException(status_code=400, detail="Selected text is required")
-        
-        # Get embedding for selected text
-        query_embedding = recommendation_service.create_embeddings([selected_text])[0]
-        
-        # Find similar sections using cosine similarity
+
+        # Generate embedding safely
+        query_embeddings = recommendation_service.create_embeddings([selected_text])
+        if not query_embeddings or len(query_embeddings) == 0:
+            raise HTTPException(status_code=500, detail="Failed to generate embedding for query text")
+        query_embedding = query_embeddings[0]
+
+        # Fetch sections from DB
         all_sections = await mongo_db.db["sections"].find({}).to_list(length=None)
-        # Convert ObjectIds to strings
         all_sections = convert_objectid_to_str(all_sections)
-        
-        # Calculate similarities and find top matches
+
         similar_sections = []
         for section in all_sections:
-            if "embedding" in section:
-                similarity = recommendation_service.cosine_similarity(
-                    query_embedding, section["embedding"]
-                )
-                similar_sections.append({
-                    "section": section,
-                    "similarity": similarity
-                })
-        
-        # Sort by similarity and get top results
+            embedding = section.get("embedding")
+            if embedding and isinstance(embedding, list):  # ensure valid vector
+                try:
+                    similarity = recommendation_service.cosine_similarity(
+                        query_embedding, embedding
+                    )
+                    similar_sections.append({
+                        "section": section,
+                        "similarity": float(similarity)
+                    })
+                except Exception as e:
+                    print(f"⚠️ Similarity calc failed for section {section.get('_id')}: {e}")
+
+        if not similar_sections:
+            return {
+                "snippets": [],
+                "selected_text": selected_text,
+                "contradictions": [],
+                "alternate_viewpoints": []
+            }
+
+        # Sort by similarity and take top matches
         similar_sections.sort(key=lambda x: x["similarity"], reverse=True)
-        top_sections = similar_sections[:10]  # Get top 10 most relevant sections
-        
-        # Analyze sections for contradictions and alternate viewpoints
-        contradictions = recommendation_service.find_contradictions(selected_text, [s["section"]["content"] for s in top_sections])
-        alternate_viewpoints = recommendation_service.find_alternate_viewpoints(selected_text, [s["section"]["content"] for s in top_sections])
-        
-        # Extract snippets (relevant sentences) from top sections
+        top_sections = similar_sections[:10]
+
+        # Analyze contradictions + alternate viewpoints
+        top_contents = [s["section"].get("content", "") for s in top_sections]
+        contradictions = recommendation_service.find_contradictions(selected_text, top_contents)
+        alternate_viewpoints = recommendation_service.find_alternate_viewpoints(selected_text, top_contents)
+
+        # Extract snippets
         snippets = []
         for item in top_sections:
             section = item["section"]
             content = section.get("content", "")
-            
-            # Simple snippet extraction - split into sentences and find most relevant ones
-            sentences = content.split('. ')
+            if not content:
+                continue
+
+            sentences = content.split(". ")
             relevant_sentences = []
-            
+
             for sentence in sentences:
-                if len(sentence.strip()) > 20:  # Only consider substantial sentences
-                    sentence_embedding = recommendation_service.create_embeddings([sentence])[0]
-                    sentence_similarity = recommendation_service.cosine_similarity(
-                        query_embedding, sentence_embedding
-                    )
-                    if sentence_similarity > 0.3:  # Threshold for relevance
-                        relevant_sentences.append({
-                            "text": sentence.strip(),
-                            "similarity": sentence_similarity
-                        })
-            
-            # Sort sentences by relevance and take top 2
+                sentence = sentence.strip()
+                if len(sentence) > 20:
+                    try:
+                        sent_embed = recommendation_service.create_embeddings([sentence])[0]
+                        sent_sim = recommendation_service.cosine_similarity(query_embedding, sent_embed)
+                        if sent_sim > 0.3:  # relevance threshold
+                            relevant_sentences.append({
+                                "text": sentence,
+                                "similarity": float(sent_sim)
+                            })
+                    except Exception as e:
+                        print(f"⚠️ Sentence embedding failed: {e}")
+
             relevant_sentences.sort(key=lambda x: x["similarity"], reverse=True)
-            top_sentences = relevant_sentences[:2]
-            
-            for sentence in top_sentences:
+            for sentence in relevant_sentences[:2]:
                 snippets.append({
                     "text": sentence["text"],
                     "section_title": section.get("title", "Untitled"),
@@ -123,18 +137,20 @@ async def semantic_search(request: dict):
                     "page_number": section.get("page_number"),
                     "similarity": sentence["similarity"]
                 })
-        
-        # Sort snippets by similarity
+
         snippets.sort(key=lambda x: x["similarity"], reverse=True)
-        
+
         return {
-            "snippets": snippets[:10],  # Return top 10 snippets
+            "snippets": snippets[:10],
             "selected_text": selected_text,
             "contradictions": contradictions,
             "alternate_viewpoints": alternate_viewpoints
         }
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"❌ Semantic search error: {e}")
         raise HTTPException(status_code=500, detail=f"Semantic search failed: {str(e)}")
 
 @router.get("/documents/{document_id}/pdf")
