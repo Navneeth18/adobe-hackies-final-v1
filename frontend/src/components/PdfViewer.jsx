@@ -3,34 +3,106 @@ import { useEffect, useState, useRef } from "react";
 const PdfViewer = ({ file, onTextSelection, onGenerateAudio }) => {
   const [directSelection, setDirectSelection] = useState("");
   const viewerRef = useRef(null);
+  const [selectionInfo, setSelectionInfo] = useState(null);
 
   useEffect(() => {
     let mouseUpHandler;
     let selectionTimeout;
 
-    // Fallback text selection handler for when Adobe callback doesn't work
+    // Simple text selection handler
     const handleMouseUp = () => {
       clearTimeout(selectionTimeout);
       selectionTimeout = setTimeout(() => {
         const selection = window.getSelection();
-        if (selection && selection.toString().trim().length > 10) {
+        if (selection && selection.rangeCount > 0 && selection.toString().trim().length > 3) {
           const selectedText = selection.toString().trim();
-          console.log("Fallback text selection:", selectedText);
-          console.log("onTextSelection callback available:", !!onTextSelection);
-          setDirectSelection(selectedText);
+          const range = selection.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
           
+          // Update state immediately
+          setDirectSelection(selectedText);
+          setSelectionInfo({
+            text: selectedText,
+            length: selectedText.length,
+            wordCount: selectedText.split(/\s+/).filter(word => word.length > 0).length,
+            position: { x: rect.x, y: rect.y },
+            timestamp: new Date().toLocaleTimeString()
+          });
+          
+          // Show visual feedback
+          if (rect.width > 0 && rect.height > 0) {
+            showSelectionFeedback(selectedText, rect);
+          }
+          
+          // Trigger callback for sidebar update
           if (onTextSelection) {
-            console.log("Calling onTextSelection with text:", selectedText);
             onTextSelection(selectedText);
           }
         }
-      }, 200);
+      }, 100);
+    };
+    
+    // Visual feedback for text selection
+    const showSelectionFeedback = (text, rect) => {
+      try {
+        // Remove any existing notifications
+        const existingNotifications = document.querySelectorAll('.selection-notification');
+        existingNotifications.forEach(notif => notif.remove());
+        
+        // Validate rect properties
+        const safeRect = {
+          bottom: rect.bottom || rect.top + (rect.height || 20),
+          left: Math.max(10, rect.left || 10),
+          width: rect.width || 200
+        };
+        
+        // Create selection notification
+        const notification = document.createElement('div');
+        notification.className = 'selection-notification';
+        notification.style.cssText = `
+          position: fixed;
+          top: ${safeRect.bottom + 10}px;
+          left: ${safeRect.left}px;
+          background: #10b981;
+          color: white;
+          padding: 8px 12px;
+          border-radius: 6px;
+          font-size: 12px;
+          z-index: 10000;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          animation: slideIn 0.3s ease-out;
+          max-width: 300px;
+          word-wrap: break-word;
+          pointer-events: none;
+        `;
+        
+        const wordCount = text.split(/\s+/).filter(word => word.length > 0).length;
+        notification.innerHTML = `
+          <div style="font-weight: 600; margin-bottom: 2px;">✓ Text Selected</div>
+          <div>${wordCount} words • ${text.length} characters</div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+          if (notification.parentNode) {
+            notification.style.animation = 'slideOut 0.3s ease-in';
+            setTimeout(() => {
+              if (notification.parentNode) {
+                notification.remove();
+              }
+            }, 300);
+          }
+        }, 3000);
+      } catch (error) {
+        console.warn('Error showing selection feedback:', error);
+      }
     };
 
 
     if (file && window.AdobeDC && window.AdobeDC.View) {
       try {
-        console.log("Initializing Adobe PDF Embed API...");
         const adobeDCView = new window.AdobeDC.View({
           clientId: import.meta.env.VITE_ADOBE_CLIENT_ID,
           divId: "adobe-dc-view",
@@ -40,7 +112,6 @@ const PdfViewer = ({ file, onTextSelection, onGenerateAudio }) => {
 
         const reader = new FileReader();
         reader.onload = function (e) {
-          console.log("Loading PDF file...");
           const previewFilePromise = adobeDCView.previewFile(
             {
               content: { promise: Promise.resolve(e.target.result) },
@@ -58,77 +129,116 @@ const PdfViewer = ({ file, onTextSelection, onGenerateAudio }) => {
             }
           );
 
-          // Enable text selection and set up proper selection detection
+          // Enable text selection with Adobe API
           previewFilePromise.then(adobeViewer => {
-            console.log("PDF loaded, setting up text selection...");
             adobeViewer.getAPIs().then(apis => {
-              // Enable text selection
-              apis.enableTextSelection(true)
-                .then(() => {
-                  console.log("Text selection enabled successfully");
-                })
-                .catch(error => {
-                  console.log("Error enabling text selection:", error);
-                });
+              apis.enableTextSelection(true);
 
-              // Set up proper text selection detection using getSelectedContent
               let lastSelectedText = "";
-              let isProcessing = false;
+              let selectionCheckInterval;
+              
+              // Adobe native selection detection using getSelectedContent API
               const checkForSelection = () => {
-                if (isProcessing) return; // Prevent overlapping calls
-                
-                // Skip Adobe API calls that cause issues
-                return;
-              };
-
-
-              // Use mouse events as primary detection method since getSelectedContent returns empty
-              const handleTextSelection = () => {
-                setTimeout(() => {
-                  const selection = window.getSelection();
-                  if (selection && selection.toString().trim().length > 10) {
-                    const selectedText = selection.toString().trim();
-                    if (selectedText !== lastSelectedText) {
-                      console.log("Mouse selection detected:", selectedText);
-                      lastSelectedText = selectedText;
-                      setDirectSelection(selectedText);
-                      
-                      if (onTextSelection) {
-                        console.log("Triggering semantic search...");
-                        onTextSelection(selectedText);
+                apis.getSelectedContent()
+                  .then(result => {
+                    if (result && result.type === 'text' && result.data && result.data.trim().length > 3) {
+                      const selectedText = result.data.trim();
+                      if (selectedText !== lastSelectedText) {
+                        lastSelectedText = selectedText;
+                        
+                        setDirectSelection(selectedText);
+                        setSelectionInfo({
+                          text: selectedText,
+                          length: selectedText.length,
+                          wordCount: selectedText.split(/\s+/).filter(word => word.length > 0).length,
+                          timestamp: new Date().toLocaleTimeString(),
+                          source: 'adobe-api'
+                        });
+                        
+                        // Show visual feedback at PDF center
+                        const pdfContainer = document.getElementById('adobe-dc-view');
+                        if (pdfContainer) {
+                          const rect = pdfContainer.getBoundingClientRect();
+                          showSelectionFeedback(selectedText, {
+                            left: rect.left + rect.width / 2 - 150,
+                            top: rect.top + 100,
+                            width: 300,
+                            height: 30
+                          });
+                        }
+                        
+                        if (onTextSelection) {
+                          onTextSelection(selectedText);
+                        }
+                      }
+                    } else if (!result || !result.data) {
+                      // Clear selection if nothing is selected
+                      if (lastSelectedText) {
+                        lastSelectedText = "";
+                        setDirectSelection("");
+                        setSelectionInfo(null);
                       }
                     }
-                  }
-                }, 100);
+                  })
+                  .catch(() => {
+                    // Silently handle API errors
+                  });
               };
 
-              // Add mouse event listeners to PDF container
+              // Start periodic checking for selections
+              selectionCheckInterval = setInterval(checkForSelection, 300);
+              
+              // Also add mouse event fallback
+              const handleMouseSelection = () => {
+                setTimeout(checkForSelection, 100);
+              };
+
               setTimeout(() => {
                 const pdfContainer = document.getElementById('adobe-dc-view');
                 if (pdfContainer) {
-                  pdfContainer.addEventListener('mouseup', handleTextSelection);
-                  document.addEventListener('mouseup', handleTextSelection);
-                  console.log("Added mouse selection listeners");
+                  pdfContainer.addEventListener('mouseup', handleMouseSelection);
+                  document.addEventListener('mouseup', handleMouseSelection);
                 }
               }, 2000);
-
-              // Remove periodic checking to prevent reloads
               
+              // Cleanup interval on component unmount
+              return () => {
+                if (selectionCheckInterval) {
+                  clearInterval(selectionCheckInterval);
+                }
+              };
             });
           });
           
-          // Also register the traditional callback as backup
+          // Adobe callback as backup
           adobeDCView.registerCallback(
             window.AdobeDC.View.Enum.CallbackType.TEXT_SELECTION,
             function(event) {
-              console.log("Adobe text selection callback:", event);
-              if (event.selectedText && event.selectedText.trim().length > 10) {
+              if (event.selectedText && event.selectedText.trim().length > 3) {
                 const selectedText = event.selectedText.trim();
-                console.log("Adobe callback selected text:", selectedText);
+                
                 setDirectSelection(selectedText);
+                setSelectionInfo({
+                  text: selectedText,
+                  length: selectedText.length,
+                  wordCount: selectedText.split(/\s+/).filter(word => word.length > 0).length,
+                  timestamp: new Date().toLocaleTimeString(),
+                  source: 'adobe-callback'
+                });
+                
+                const pdfContainer = document.getElementById('adobe-dc-view');
+                if (pdfContainer) {
+                  const rect = pdfContainer.getBoundingClientRect();
+                  showSelectionFeedback(selectedText, {
+                    left: rect.left + rect.width / 2 - 100,
+                    top: rect.top + 50,
+                    bottom: rect.top + 100,
+                    width: 200,
+                    height: 20
+                  });
+                }
                 
                 if (onTextSelection) {
-                  console.log("Triggering semantic search via callback...");
                   onTextSelection(selectedText);
                 }
               }
@@ -136,51 +246,24 @@ const PdfViewer = ({ file, onTextSelection, onGenerateAudio }) => {
             {}
           );
 
-
-          // Add multiple fallback event listeners for better text selection detection
+          // Fallback listeners
           setTimeout(() => {
             const pdfContainer = document.getElementById('adobe-dc-view');
             if (pdfContainer) {
               mouseUpHandler = handleMouseUp;
-              
-              // Add multiple event types for better coverage
               pdfContainer.addEventListener('mouseup', mouseUpHandler);
-              pdfContainer.addEventListener('selectionchange', mouseUpHandler);
               document.addEventListener('mouseup', mouseUpHandler);
-              document.addEventListener('selectionchange', mouseUpHandler);
-              
-              // Also try to find iframe content if Adobe uses iframe
-              const checkForIframe = setInterval(() => {
-                const iframe = pdfContainer.querySelector('iframe');
-                if (iframe) {
-                  try {
-                    iframe.contentDocument.addEventListener('mouseup', mouseUpHandler);
-                    iframe.contentDocument.addEventListener('selectionchange', mouseUpHandler);
-                    console.log("Added listeners to PDF iframe");
-                    clearInterval(checkForIframe);
-                  } catch (e) {
-                    console.log("Cannot access iframe content (CORS)");
-                  }
-                }
-              }, 500);
-              
-              // Clear interval after 10 seconds
-              setTimeout(() => clearInterval(checkForIframe), 10000);
-              
-              console.log("Added comprehensive fallback listeners");
             }
           }, 2000);
         };
         reader.readAsArrayBuffer(file);
 
       } catch (error) {
-        console.error("Error initializing Adobe PDF Embed API:", error);
-        // Still add fallback handler even if Adobe fails
         mouseUpHandler = handleMouseUp;
         document.addEventListener('mouseup', mouseUpHandler);
       }
     } else {
-      // If Adobe API not available, use fallback
+      // Fallback if Adobe API not available
       mouseUpHandler = handleMouseUp;
       document.addEventListener('mouseup', mouseUpHandler);
     }
@@ -191,14 +274,13 @@ const PdfViewer = ({ file, onTextSelection, onGenerateAudio }) => {
         document.removeEventListener('mouseup', mouseUpHandler);
         document.removeEventListener('selectionchange', mouseUpHandler);
         const pdfContainer = document.getElementById('adobe-dc-view');
-        if (pdfContainer) {
-          pdfContainer.removeEventListener('mouseup', mouseUpHandler);
-          pdfContainer.removeEventListener('selectionchange', mouseUpHandler);
-        }
       }
+      
+      // Clear any existing selection timeouts
       if (selectionTimeout) {
         clearTimeout(selectionTimeout);
       }
+      
       // Remove any existing notifications
       const existingNotifications = document.querySelectorAll('.selection-notification');
       existingNotifications.forEach(notif => notif.remove());
@@ -208,6 +290,46 @@ const PdfViewer = ({ file, onTextSelection, onGenerateAudio }) => {
   return (
     <div className="relative w-full h-full">
       <div id="adobe-dc-view" className="w-full h-full"></div>
+      
+      {/* Selection Info Overlay */}
+      {selectionInfo && (
+        <div className="absolute top-4 right-4 bg-white border border-gray-200 rounded-lg p-3 shadow-lg z-50 max-w-xs">
+          <div className="text-xs text-gray-500 mb-1">Last Selection</div>
+          <div className="text-sm font-medium text-gray-800 mb-2">
+            {selectionInfo.wordCount} words • {selectionInfo.length} chars
+          </div>
+          <div className="text-xs text-gray-600 truncate">
+            "{selectionInfo.text.substring(0, 50)}{selectionInfo.text.length > 50 ? '...' : ''}"
+          </div>
+          <div className="text-xs text-gray-400 mt-1">
+            {selectionInfo.timestamp} • {selectionInfo.source || 'manual'}
+          </div>
+        </div>
+      )}
+      
+      <style>{`
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        @keyframes slideOut {
+          from {
+            opacity: 1;
+            transform: translateY(0);
+          }
+          to {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+        }
+      `}</style>
     </div>
   );
 };

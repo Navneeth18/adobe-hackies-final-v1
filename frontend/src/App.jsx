@@ -235,43 +235,32 @@ function App() {
 
   // Handle text selection from PDF viewer - automatically triggers semantic search
   const handleTextSelection = async (text) => {
-    if (!text || text.trim().length < 10) {
-      toast.error("Please select more text (at least 10 characters) for semantic search");
+    if (!text || text.trim().length < 3) {
       return;
     }
 
+    // Immediately update sidebar with selected text
     setSelectedText(text);
     setIsSearchingSnippets(true);
     setSnippets([]);
     setContradictions([]);
     setAlternateViewpoints([]);
     setLlmInsights(null);
-    // Reset podcast state
     setPodcastAudioId(null);
     setPodcastAudioUrl(null);
 
-    // Show loading toast for semantic search
-    toast.loading("Searching for related content...");
-
+    // Start semantic search in background
     try {
       const searchResults = await apiService.semanticSearch(text);
       setSnippets(searchResults.snippets || []);
       setContradictions(searchResults.contradictions || []);
       setAlternateViewpoints(searchResults.alternate_viewpoints || []);
       
-      toast.dismiss();
       if (searchResults.snippets && searchResults.snippets.length > 0) {
-        toast.success(`Found ${searchResults.snippets.length} relevant snippets`);
-        // Automatically generate LLM insights after semantic search completes
         generateLLMInsights(text);
-      } else {
-        toast.info("No relevant snippets found for your selection");
       }
     } catch (error) {
-      console.error("Semantic search failed:", error);
-      toast.dismiss();
-      toast.error(`Semantic search failed: ${error.message}`);
-      // Reset states on error
+      // Silently handle errors - text is still displayed in sidebar
       setSnippets([]);
       setContradictions([]);
       setAlternateViewpoints([]);

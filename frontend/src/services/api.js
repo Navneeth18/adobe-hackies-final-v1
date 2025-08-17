@@ -66,14 +66,14 @@ export const apiService = {
   },
 
   // Perform semantic search
-  async semanticSearch(text, documentIds = null) {
+  async semanticSearch(selectedText, documentIds = null) {
     try {
-      const requestBody = { text };
+      const requestBody = { selected_text: selectedText };
       if (documentIds && documentIds.length > 0) {
         requestBody.document_ids = documentIds;
       }
 
-      const response = await fetch(`${API_BASE_URL}/search/semantic`, {
+      const response = await fetch(`${API_BASE_URL}/documents/semantic-search`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
