@@ -68,10 +68,75 @@ const PdfViewer = ({ file, onTextSelection, onGenerateAudio, targetPage, highlig
     // ---- Adobe PDF Embed ----
     if (file && window.AdobeDC?.View) {
       try {
+        // Clear any existing viewer content
+        const viewerContainer = document.getElementById("adobe-dc-view");
+        if (viewerContainer) {
+          viewerContainer.innerHTML = '';
+        }
+
         const adobeDCView = new window.AdobeDC.View({
           clientId: import.meta.env.VITE_ADOBE_CLIENT_ID,
           divId: "adobe-dc-view",
         });
+
+        // Register required callbacks to prevent errors
+        const registerCallbacks = () => {
+          try {
+            // Check if callback types are available
+            if (window.AdobeDC?.View?.Enum?.CallbackType) {
+              const callbackTypes = window.AdobeDC.View.Enum.CallbackType;
+              
+              // Register feature flag callbacks if available
+              if (callbackTypes.GET_FEATURE_FLAG) {
+                adobeDCView.registerCallback(
+                  callbackTypes.GET_FEATURE_FLAG,
+                  function(flagName) {
+                    console.log(`Feature flag requested: ${flagName}`);
+                    // Return default values for common flags
+                    const defaultFlags = {
+                      'enable-tools-multidoc': false,
+                      'edit-config': false,
+                      'enable-accessibility': true,
+                      'preview-config': true,
+                      'enable-inline-organize': false,
+                      'enable-pdf-request-signatures': false,
+                      'DCWeb_edit_image_experiment': false
+                    };
+                    return defaultFlags[flagName] || false;
+                  }
+                );
+              }
+
+              // Register other common callbacks to prevent errors
+              const commonCallbacks = [
+                'SAVE_API',
+                'PDF_VIEWER_READY',
+                'DOCUMENT_DOWNLOAD',
+                'DOCUMENT_PRINT'
+              ];
+
+              commonCallbacks.forEach(callbackName => {
+                if (callbackTypes[callbackName]) {
+                  try {
+                    adobeDCView.registerCallback(
+                      callbackTypes[callbackName],
+                      function(event) {
+                        console.log(`Adobe callback triggered: ${callbackName}`, event);
+                        return true;
+                      }
+                    );
+                  } catch (err) {
+                    console.warn(`Failed to register ${callbackName} callback:`, err);
+                  }
+                }
+              });
+            }
+          } catch (error) {
+            console.warn('Failed to register Adobe callbacks:', error);
+          }
+        };
+
+        registerCallbacks();
 
         viewerRef.current = adobeDCView;
 
@@ -197,17 +262,25 @@ const PdfViewer = ({ file, onTextSelection, onGenerateAudio, targetPage, highlig
               selectionCheckInterval = setInterval(checkForSelection, 1000);
 
               // ---- Adobe callback (debounced) ----
-              adobeDCView.registerCallback(
-                window.AdobeDC.View.Enum.CallbackType.TEXT_SELECTION,
-                function (event) {
-                  if (event.selectedText) {
-                    const pdfContainer = document.getElementById("adobe-dc-view");
-                    const rect = pdfContainer?.getBoundingClientRect();
-                    debounceSelection(event.selectedText, "adobe-callback", rect);
-                  }
-                },
-                {}
-              );
+              try {
+                if (window.AdobeDC?.View?.Enum?.CallbackType?.TEXT_SELECTION) {
+                  adobeDCView.registerCallback(
+                    window.AdobeDC.View.Enum.CallbackType.TEXT_SELECTION,
+                    function (event) {
+                      if (event.selectedText) {
+                        const pdfContainer = document.getElementById("adobe-dc-view");
+                        const rect = pdfContainer?.getBoundingClientRect();
+                        debounceSelection(event.selectedText, "adobe-callback", rect);
+                      }
+                    },
+                    {}
+                  );
+                } else {
+                  console.warn('TEXT_SELECTION callback type not available');
+                }
+              } catch (callbackError) {
+                console.warn('Failed to register TEXT_SELECTION callback:', callbackError);
+              }
             });
           });
         };
