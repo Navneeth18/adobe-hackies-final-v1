@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef } from "react";
 
-const PdfViewer = ({ file, onTextSelection, onGenerateAudio }) => {
+const PdfViewer = ({ file, onTextSelection, onGenerateAudio, targetPage }) => {
   const [directSelection, setDirectSelection] = useState("");
   const viewerRef = useRef(null);
   const [selectionInfo, setSelectionInfo] = useState(null);
+  const [isViewerReady, setIsViewerReady] = useState(false);
 
   useEffect(() => {
     let selectionTimeout;
@@ -88,6 +89,18 @@ const PdfViewer = ({ file, onTextSelection, onGenerateAudio }) => {
           previewFilePromise.then((adobeViewer) => {
             adobeViewer.getAPIs().then((apis) => {
               apis.enableTextSelection(true);
+              setIsViewerReady(true);
+
+              // Navigate to target page if specified
+              if (targetPage && targetPage > 0) {
+                setTimeout(() => {
+                  apis.gotoLocation(targetPage).then(() => {
+                    console.log(`Navigated to page ${targetPage}`);
+                  }).catch((error) => {
+                    console.warn(`Failed to navigate to page ${targetPage}:`, error);
+                  });
+                }, 1000); // Wait for viewer to be fully ready
+              }
 
               // ---- Adobe polling (debounced every 1s) ----
               const checkForSelection = () => {

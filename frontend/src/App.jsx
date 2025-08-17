@@ -92,14 +92,11 @@ function App() {
 
   // Load document content (separated for reuse)
   const loadDocumentContent = async (document) => {
-    // Check if we already have this document loaded
-    if (documentFiles[document._id]) {
-      setSelectedFile(documentFiles[document._id]);
-      // Skip sections fetch since endpoint doesn't exist
-      // if (documentSections.length === 0) {
-      //   const response = await apiService.getDocumentSections(document._id);
-      //   setDocumentSections(response.sections || []);
-      // }
+    const docId = document.isDuplicate ? document.originalId : document._id;
+    
+    // Check if we already have this document loaded (use original ID for duplicates)
+    if (documentFiles[docId]) {
+      setSelectedFile(documentFiles[docId]);
       return;
     }
     
@@ -108,15 +105,15 @@ function App() {
     try {
       // Fetch PDF directly instead of sections
       toast.loading("Fetching PDF...");
-      const pdfBlob = await apiService.getDocumentPdf(document._id);
+      const pdfBlob = await apiService.getDocumentPdf(docId);
       
       // Create a file object from the blob to display in the PDF viewer
       const file = new File([pdfBlob], `${document.filename}`, { type: 'application/pdf' });
       
-      // Store the file in our document files cache
+      // Store the file in our document files cache (use original ID for duplicates)
       setDocumentFiles(prev => ({
         ...prev,
-        [document._id]: file
+        [docId]: file
       }));
       
       setSelectedFile(file);
@@ -124,9 +121,6 @@ function App() {
       toast.dismiss();
       toast.success("PDF loaded in viewer");
       
-      // Skip sections fetch since endpoint doesn't exist
-      // const response = await apiService.getDocumentSections(document._id);
-      // setDocumentSections(response.sections || []);
       setDocumentSections([]); // Set empty sections
     } catch (error) {
       console.error("Failed to fetch PDF or sections:", error);
@@ -215,12 +209,19 @@ function App() {
     const newSelection = selectedDocuments.filter(doc => doc._id !== document._id);
     setSelectedDocuments(newSelection);
     
-    // Remove from document files cache
-    setDocumentFiles(prev => {
-      const newFiles = { ...prev };
-      delete newFiles[document._id];
-      return newFiles;
-    });
+    // Only remove from cache if no other tabs are using the same original document
+    const docId = document.isDuplicate ? document.originalId : document._id;
+    const stillInUse = newSelection.some(doc => 
+      (doc.isDuplicate ? doc.originalId : doc._id) === docId
+    );
+    
+    if (!stillInUse) {
+      setDocumentFiles(prev => {
+        const newFiles = { ...prev };
+        delete newFiles[docId];
+        return newFiles;
+      });
+    }
     
     if (activeDocumentTab === document._id) {
       setActiveDocumentTab(newSelection.length > 0 ? newSelection[0]._id : null);
@@ -328,7 +329,7 @@ function App() {
     }
   };
 
-  // Handle snippet click to navigate to specific section
+  // Handle snippet click to navigate to specific section with smart tab management
   const handleSnippetClick = async (snippet) => {
     try {
       // Find the document that contains this snippet
@@ -338,13 +339,60 @@ function App() {
         return;
       }
 
-      // Load the document and navigate to the specific section
-      await handleDocumentSelect(document);
+      const currentActiveDoc = selectedDocuments.find(doc => doc._id === activeDocumentTab);
+      const isFromSameDocument = currentActiveDoc && currentActiveDoc._id === snippet.document_id;
+      const isAlreadyOpen = selectedDocuments.some(doc => doc._id === snippet.document_id);
+
+      if (isFromSameDocument) {
+        // Same document - open duplicate in new tab and scroll to section
+        toast.loading("Opening section in new tab...");
+        
+        // Create a duplicate tab by adding the document again with a unique identifier
+        const duplicateDoc = { 
+          ...document, 
+          _id: `${document._id}_duplicate_${Date.now()}`,
+          filename: `${document.filename} (Section: ${snippet.section_title})`,
+          isDuplicate: true,
+          originalId: document._id,
+          targetPage: snippet.page_number
+        };
+        
+        const newSelection = [...selectedDocuments, duplicateDoc];
+        setSelectedDocuments(newSelection);
+        setActiveDocumentTab(duplicateDoc._id);
+        
+        // Load the document content for the duplicate
+        await loadDocumentContent(document);
+        
+        toast.dismiss();
+        toast.success(`Opened "${snippet.section_title}" in new tab`);
+        
+      } else if (isAlreadyOpen) {
+        // Document already open - switch to that tab and scroll to section
+        setActiveDocumentTab(snippet.document_id);
+        await loadDocumentContent(document);
+        
+        // TODO: Implement scroll to specific page/section
+        toast.success(`Switched to ${document.filename} - ${snippet.section_title}`);
+        
+      } else {
+        // New document - open in new tab without affecting current working PDF
+        toast.loading("Opening document in new tab...");
+        
+        const newSelection = [...selectedDocuments, document];
+        setSelectedDocuments(newSelection);
+        setActiveDocumentTab(document._id);
+        
+        // Load the document content
+        await loadDocumentContent(document);
+        
+        toast.dismiss();
+        toast.success(`Opened ${document.filename} in new tab`);
+      }
       
-      // TODO: Implement goToLocation to navigate to specific page/section
-      toast.success(`Navigated to ${document.filename} - ${snippet.section_title}`);
     } catch (error) {
       console.error("Failed to navigate to snippet:", error);
+      toast.dismiss();
       toast.error("Failed to navigate to snippet");
     }
   };
@@ -613,6 +661,10 @@ function App() {
               <PdfViewer 
                 file={selectedFile} 
                 onTextSelection={handleTextSelection}
+                targetPage={(() => {
+                  const activeDoc = selectedDocuments.find(doc => doc._id === activeDocumentTab);
+                  return activeDoc?.targetPage || null;
+                })()}
               />
             ) : selectedDocuments.length > 0 && activeDocumentTab ? (
               <div className="p-6">

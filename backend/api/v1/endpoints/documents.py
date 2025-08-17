@@ -103,6 +103,18 @@ async def semantic_search(request: dict):
         contradictions = recommendation_service.find_contradictions(selected_text, top_contents)
         alternate_viewpoints = recommendation_service.find_alternate_viewpoints(selected_text, top_contents)
 
+        # Get document info for snippets
+        document_info = {}
+        for item in top_sections:
+            doc_id = item["section"].get("document_id")
+            if doc_id and doc_id not in document_info:
+                doc = await mongo_db.db["documents"].find_one({"_id": doc_id})
+                if doc:
+                    document_info[doc_id] = {
+                        "filename": doc.get("filename", "Unknown"),
+                        "cluster_id": doc.get("cluster_id")
+                    }
+
         # Extract snippets
         snippets = []
         for item in top_sections:
@@ -129,11 +141,16 @@ async def semantic_search(request: dict):
                         print(f"⚠️ Sentence embedding failed: {e}")
 
             relevant_sentences.sort(key=lambda x: x["similarity"], reverse=True)
+            doc_id = section.get("document_id")
+            doc_info = document_info.get(doc_id, {})
+            
             for sentence in relevant_sentences[:2]:
                 snippets.append({
                     "text": sentence["text"],
                     "section_title": section.get("title", "Untitled"),
-                    "document_id": section.get("document_id"),
+                    "document_id": doc_id,
+                    "document_filename": doc_info.get("filename", "Unknown"),
+                    "document_cluster_id": doc_info.get("cluster_id"),
                     "page_number": section.get("page_number"),
                     "similarity": sentence["similarity"]
                 })
