@@ -216,3 +216,40 @@ async def upload_document_cluster(files: List[UploadFile] = File(...)):
         if os.path.exists(temp_dir): shutil.rmtree(temp_dir)
 
     return {"cluster_id": cluster_id, "processed_files_count": len(doc_records)}
+
+@router.delete("/documents/{document_id}")
+async def delete_document(document_id: str):
+    """Delete a document and all its sections"""
+    try:
+        # Try to find document by string ID first
+        document = await mongo_db.db["documents"].find_one({"_id": document_id})
+        
+        # If not found, try to convert to ObjectId (if it's a valid ObjectId)
+        if not document and ObjectId.is_valid(document_id):
+            document = await mongo_db.db["documents"].find_one({"_id": ObjectId(document_id)})
+            
+        if not document:
+            raise HTTPException(status_code=404, detail=f"Document with ID {document_id} not found")
+        
+        doc_id = document["_id"]
+        
+        # Delete the document from database
+        delete_result = await mongo_db.db["documents"].delete_one({"_id": doc_id})
+        
+        # Delete all sections for this document
+        await mongo_db.db["sections"].delete_many({"document_id": str(doc_id)})
+        
+        # Delete the PDF file if it exists
+        pdf_path = os.path.join("pdf_storage", f"{doc_id}.pdf")
+        if os.path.exists(pdf_path):
+            os.remove(pdf_path)
+        
+        if delete_result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        return {"message": f"Document {doc_id} deleted successfully", "deleted_document_id": str(doc_id)}
+        
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=f"Failed to delete document: {str(e)}")

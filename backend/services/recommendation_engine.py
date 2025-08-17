@@ -15,7 +15,8 @@ except Exception: STOPWORDS = set()
 
 class RecommendationService:
     def __init__(self):
-        self.model_path = "./core_engine_data/models/all-mpnet-base-v2"
+        self.model_path = "./core_engine_data/models/all-MiniLM-L6-v2"
+
         self.model = None
         self.contradiction_keywords = [
             "however", "but", "although", "nevertheless", "nonetheless", "contrary", 

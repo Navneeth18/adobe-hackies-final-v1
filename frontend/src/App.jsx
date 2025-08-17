@@ -20,15 +20,21 @@ function App() {
   const [uploadedDocuments, setUploadedDocuments] = useState([]);
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
   const [documentError, setDocumentError] = useState(null);
-  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [selectedDocuments, setSelectedDocuments] = useState([]); // Changed to array for multi-select
+  const [activeDocumentTab, setActiveDocumentTab] = useState(null); // Track active tab
   const [documentSections, setDocumentSections] = useState([]);
   const [isLoadingSections, setIsLoadingSections] = useState(false);
+  const [documentFiles, setDocumentFiles] = useState({}); // Store loaded PDF files by document ID
   
   // Snippets and semantic search state
   const [snippets, setSnippets] = useState([]);
   const [isSearchingSnippets, setIsSearchingSnippets] = useState(false);
   const [contradictions, setContradictions] = useState([]);
   const [alternateViewpoints, setAlternateViewpoints] = useState([]);
+  
+  // LLM-generated insights state
+  const [llmInsights, setLlmInsights] = useState(null);
+  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   
   // Podcast state
   const [podcastAudioId, setPodcastAudioId] = useState(null);
@@ -56,9 +62,47 @@ function App() {
     }
   };
 
-  // Handle document selection from library
-  const handleDocumentSelect = async (document) => {
-    setSelectedDocument(document);
+  // Handle document selection from library (multi-select)
+  const handleDocumentSelect = async (document, isCtrlClick = false) => {
+    if (isCtrlClick) {
+      // Multi-select mode
+      const isAlreadySelected = selectedDocuments.some(doc => doc._id === document._id);
+      if (isAlreadySelected) {
+        // Remove from selection
+        const newSelection = selectedDocuments.filter(doc => doc._id !== document._id);
+        setSelectedDocuments(newSelection);
+        if (activeDocumentTab === document._id) {
+          setActiveDocumentTab(newSelection.length > 0 ? newSelection[0]._id : null);
+        }
+      } else {
+        // Add to selection
+        const newSelection = [...selectedDocuments, document];
+        setSelectedDocuments(newSelection);
+        setActiveDocumentTab(document._id);
+      }
+    } else {
+      // Single select mode - replace selection
+      setSelectedDocuments([document]);
+      setActiveDocumentTab(document._id);
+    }
+    
+    // Load the document that was clicked
+    await loadDocumentContent(document);
+  };
+
+  // Load document content (separated for reuse)
+  const loadDocumentContent = async (document) => {
+    // Check if we already have this document loaded
+    if (documentFiles[document._id]) {
+      setSelectedFile(documentFiles[document._id]);
+      // Skip sections fetch since endpoint doesn't exist
+      // if (documentSections.length === 0) {
+      //   const response = await apiService.getDocumentSections(document._id);
+      //   setDocumentSections(response.sections || []);
+      // }
+      return;
+    }
+    
     setIsLoadingSections(true);
     
     try {
@@ -67,15 +111,23 @@ function App() {
       const pdfBlob = await apiService.getDocumentPdf(document._id);
       
       // Create a file object from the blob to display in the PDF viewer
-      const file = new File([pdfBlob], `${document._id}.pdf`, { type: 'application/pdf' });
+      const file = new File([pdfBlob], `${document.filename}`, { type: 'application/pdf' });
+      
+      // Store the file in our document files cache
+      setDocumentFiles(prev => ({
+        ...prev,
+        [document._id]: file
+      }));
+      
       setSelectedFile(file);
       
       toast.dismiss();
       toast.success("PDF loaded in viewer");
       
-      // Still fetch sections in background for other functionality
-      const response = await apiService.getDocumentSections(document._id);
-      setDocumentSections(response.sections || []);
+      // Skip sections fetch since endpoint doesn't exist
+      // const response = await apiService.getDocumentSections(document._id);
+      // setDocumentSections(response.sections || []);
+      setDocumentSections([]); // Set empty sections
     } catch (error) {
       console.error("Failed to fetch PDF or sections:", error);
       setDocumentSections([]);
@@ -108,19 +160,98 @@ function App() {
     }
   };
 
-  // Handle text selection from PDF viewer
+  // Handle document deletion
+  const handleDeleteDocument = async (document, event) => {
+    event.stopPropagation(); // Prevent document selection
+    
+    if (!confirm(`Are you sure you want to delete "${document.filename}"? This action cannot be undone.`)) {
+      return;
+    }
+    
+    try {
+      toast.loading("Deleting document...");
+      await apiService.deleteDocument(document._id);
+      
+      // Remove from selected documents if it was selected
+      const newSelection = selectedDocuments.filter(doc => doc._id !== document._id);
+      setSelectedDocuments(newSelection);
+      
+      // Remove from document files cache
+      setDocumentFiles(prev => {
+        const newFiles = { ...prev };
+        delete newFiles[document._id];
+        return newFiles;
+      });
+      
+      // Update active tab if the deleted document was active
+      if (activeDocumentTab === document._id) {
+        setActiveDocumentTab(newSelection.length > 0 ? newSelection[0]._id : null);
+        if (newSelection.length > 0) {
+          loadDocumentContent(newSelection[0]);
+        }
+      }
+      
+      // Refresh document library
+      await fetchUploadedDocuments();
+      
+      toast.dismiss();
+      toast.success(`"${document.filename}" deleted successfully`);
+    } catch (error) {
+      console.error("Failed to delete document:", error);
+      toast.dismiss();
+      toast.error(`Failed to delete document: ${error.message}`);
+    }
+  };
+
+  // Handle tab switching
+  const handleTabSwitch = async (document) => {
+    setActiveDocumentTab(document._id);
+    await loadDocumentContent(document);
+  };
+
+  // Handle tab close
+  const handleTabClose = (document, event) => {
+    event.stopPropagation();
+    const newSelection = selectedDocuments.filter(doc => doc._id !== document._id);
+    setSelectedDocuments(newSelection);
+    
+    // Remove from document files cache
+    setDocumentFiles(prev => {
+      const newFiles = { ...prev };
+      delete newFiles[document._id];
+      return newFiles;
+    });
+    
+    if (activeDocumentTab === document._id) {
+      setActiveDocumentTab(newSelection.length > 0 ? newSelection[0]._id : null);
+      if (newSelection.length > 0) {
+        loadDocumentContent(newSelection[0]);
+      } else {
+        setSelectedFile(null);
+        setDocumentSections([]);
+      }
+    }
+  };
+
+  // Handle text selection from PDF viewer - automatically triggers semantic search
   const handleTextSelection = async (text) => {
     if (!text || text.trim().length < 10) {
-      toast.error("Please select more text for better search results");
+      toast.error("Please select more text (at least 10 characters) for semantic search");
       return;
     }
 
     setSelectedText(text);
     setIsSearchingSnippets(true);
     setSnippets([]);
+    setContradictions([]);
+    setAlternateViewpoints([]);
+    setLlmInsights(null);
     // Reset podcast state
     setPodcastAudioId(null);
     setPodcastAudioUrl(null);
+
+    // Show loading toast for semantic search
+    toast.loading("Searching for related content...");
 
     try {
       const searchResults = await apiService.semanticSearch(text);
@@ -128,23 +259,53 @@ function App() {
       setContradictions(searchResults.contradictions || []);
       setAlternateViewpoints(searchResults.alternate_viewpoints || []);
       
+      toast.dismiss();
       if (searchResults.snippets && searchResults.snippets.length > 0) {
         toast.success(`Found ${searchResults.snippets.length} relevant snippets`);
+        // Automatically generate LLM insights after semantic search completes
+        generateLLMInsights(text);
       } else {
         toast.info("No relevant snippets found for your selection");
       }
     } catch (error) {
       console.error("Semantic search failed:", error);
-      toast.error("Failed to search for relevant snippets");
+      toast.dismiss();
+      toast.error(`Semantic search failed: ${error.message}`);
+      // Reset states on error
+      setSnippets([]);
+      setContradictions([]);
+      setAlternateViewpoints([]);
+      setLlmInsights(null);
     } finally {
       setIsSearchingSnippets(false);
     }
   };
+
+  // Generate LLM insights from selected text with related snippets
+  const generateLLMInsights = async (text) => {
+    if (!text || text.trim().length < 20) {
+      return;
+    }
+
+    setIsGeneratingInsights(true);
+    
+    try {
+      // Pass related snippets to provide context for better insights
+      const insights = await apiService.getInsights(text, snippets);
+      setLlmInsights(insights);
+    } catch (error) {
+      console.error("Failed to generate insights:", error);
+      toast.error(`Failed to generate insights: ${error.message}`);
+      setLlmInsights(null);
+    } finally {
+      setIsGeneratingInsights(false);
+    }
+  };
   
-  // Generate podcast from selected text and insights
+  // Handle podcast generation with enhanced insights
   const handleGeneratePodcast = async () => {
-    if (!selectedText || selectedText.trim().length < 10) {
-      toast.error("Please select text before generating a podcast");
+    if (!selectedText || snippets.length === 0) {
+      toast.error("Please select text and wait for semantic search to complete");
       return;
     }
     
@@ -152,23 +313,23 @@ function App() {
     setPodcastAudioUrl(null);
     
     try {
-      toast.loading("Generating podcast audio...");
+      toast.loading("Generating podcast audio with insights...");
       const result = await apiService.generatePodcast(
         selectedText,
         snippets,
-        contradictions,
-        alternateViewpoints
+        llmInsights || {} // Use enhanced LLM insights instead of old contradictions/viewpoints
       );
       
-      setPodcastAudioId(result.audio_id);
-      
-      // Fetch the audio file
-      const audioBlob = await apiService.getPodcastAudio(result.audio_id);
-      const audioUrl = URL.createObjectURL(audioBlob);
-      setPodcastAudioUrl(audioUrl);
-      
-      toast.dismiss();
-      toast.success("Podcast generated successfully!");
+      if (result.success && result.audio_id) {
+        setPodcastAudioId(result.audio_id);
+        
+        // Set the audio URL to the serving endpoint
+        setPodcastAudioUrl(`http://localhost:8000/api/v1/audio/serve/${result.audio_id}`);
+        toast.dismiss();
+        toast.success("Podcast generated successfully with enhanced insights!");
+      } else {
+        throw new Error(result.error || "Failed to generate podcast");
+      }
     } catch (error) {
       console.error("Failed to generate podcast:", error);
       toast.dismiss();
@@ -349,29 +510,41 @@ function App() {
             <p className="text-sm text-[var(--text-secondary)] mb-4">No documents uploaded</p>
           ) : (
             <ul className="space-y-2 mb-4">
-              {uploadedDocuments.map((document, index) => (
-                <li
-                  key={document._id || index}
-                  className={`flex items-center justify-between p-2 rounded border cursor-pointer ${
-                    selectedDocument === document
-                      ? "bg-[var(--highlight)] bg-opacity-10 border-[var(--highlight)]"
-                      : "bg-[var(--card-bg)] hover:bg-opacity-80"
-                  }`}
-                  onClick={() => handleDocumentSelect(document)}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm text-[var(--text-primary)] truncate">
-                      {document.filename}
+              {uploadedDocuments.map((document, index) => {
+                const isSelected = selectedDocuments.some(doc => doc._id === document._id);
+                return (
+                  <li
+                    key={document._id || index}
+                    className={`flex items-center justify-between p-2 rounded border cursor-pointer ${
+                      isSelected
+                        ? "bg-[var(--highlight)] bg-opacity-10 border-[var(--highlight)]"
+                        : "bg-[var(--card-bg)] hover:bg-opacity-80"
+                    }`}
+                    onClick={(e) => handleDocumentSelect(document, e.ctrlKey || e.metaKey)}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-[var(--text-primary)] truncate">
+                        {document.filename}
+                      </div>
+                      <div className="text-xs text-[var(--text-secondary)]">
+                        Cluster: {document.cluster_id?.slice(0, 8)}...
+                      </div>
                     </div>
-                    <div className="text-xs text-[var(--text-secondary)]">
-                      Cluster: {document.cluster_id?.slice(0, 8)}...
+                    <div className="flex items-center gap-2">
+                      <div className="text-xs text-[var(--text-secondary)]">
+                        {document.total_sections} sections
+                      </div>
+                      <button
+                        onClick={(e) => handleDeleteDocument(document, e)}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-100 rounded p-1 transition-colors"
+                        title={`Delete ${document.filename}`}
+                      >
+                        🗑️
+                      </button>
                     </div>
-                  </div>
-                  <div className="text-xs text-[var(--text-secondary)] ml-2">
-                    {document.total_sections} sections
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           )}
 
@@ -389,7 +562,35 @@ function App() {
 
         {/* Center PDF Viewer with Tabs */}
         <div className="flex-1 flex flex-col bg-white overflow-hidden">
-          {/* Tabs */}
+          {/* Document Tabs */}
+          {selectedDocuments.length > 0 && (
+            <div className="flex border-b bg-gray-100 overflow-x-auto">
+              {selectedDocuments.map((document) => (
+                <div
+                  key={document._id}
+                  className={`px-4 py-2 flex items-center gap-2 cursor-pointer border-r whitespace-nowrap ${
+                    activeDocumentTab === document._id
+                      ? "bg-white border-b-2 border-red-600 font-medium"
+                      : "hover:bg-gray-200"
+                  }`}
+                  onClick={() => handleTabSwitch(document)}
+                >
+                  <span className="truncate max-w-[150px]" title={document.filename}>
+                    {document.filename}
+                  </span>
+                  <button
+                    className="text-red-500 hover:text-red-700 ml-1"
+                    onClick={(e) => handleTabClose(document, e)}
+                    title="Close tab"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {/* File Upload Tabs (for uploaded files) */}
           {files.length > 0 && (
             <div className="flex border-b bg-gray-100">
               {files.map((file, index) => (
@@ -422,15 +623,19 @@ function App() {
             {selectedFile ? (
               <PdfViewer 
                 file={selectedFile} 
-                onTextSelection={handleTextSelection} 
-                onGenerateAudio={handleGeneratePodcast}
+                onTextSelection={handleTextSelection}
               />
-            ) : selectedDocument ? (
+            ) : selectedDocuments.length > 0 && activeDocumentTab ? (
               <div className="p-6">
-                <div className="mb-4">
-                  <h2 className="text-xl font-semibold mb-2">{selectedDocument.filename}</h2>
-                  <p className="text-sm text-gray-600">Document from cluster: {selectedDocument.cluster_id}</p>
-                </div>
+                {(() => {
+                  const activeDocument = selectedDocuments.find(doc => doc._id === activeDocumentTab);
+                  return activeDocument ? (
+                    <div className="mb-4">
+                      <h2 className="text-xl font-semibold mb-2">{activeDocument.filename}</h2>
+                      <p className="text-sm text-gray-600">Document from cluster: {activeDocument.cluster_id}</p>
+                    </div>
+                  ) : null;
+                })()}
                 
                 {isLoadingSections ? (
                   <div className="text-center py-8">
@@ -475,36 +680,46 @@ function App() {
         </div>
 
         {/* Right Sidebar */}
-        <div className="w-96 border-l bg-red-50 p-4 overflow-y-auto">
+        <div className="w-96 border-l border-gray-200 bg-gray-50 p-4 overflow-y-auto">
           <h2 className="font-semibold mb-4">Connecting the Dots</h2>
 
-          {/* Selected Document Info */}
-          {selectedDocument && (
+          {/* Selected Documents Info */}
+          {selectedDocuments.length > 0 && (
             <div className="bg-white rounded p-4 shadow mb-4">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="font-medium">📄 Selected Document</h3>
+                <h3 className="font-medium">📄 Selected Documents ({selectedDocuments.length})</h3>
                 <button
                   onClick={() => {
-                    setSelectedDocument(null);
+                    setSelectedDocuments([]);
+                    setActiveDocumentTab(null);
                     setDocumentSections([]);
+                    setSelectedFile(null);
+                    setDocumentFiles({});
                   }}
                   className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
                 >
-                  ✕
+                  Clear All
                 </button>
               </div>
-              <div className="text-sm text-gray-700">
-                <p><strong>Filename:</strong> {selectedDocument.filename}</p>
-                <p><strong>Cluster ID:</strong> {selectedDocument.cluster_id}</p>
-                <p><strong>Sections:</strong> {selectedDocument.total_sections}</p>
-                <p><strong>Document ID:</strong> {selectedDocument._id}</p>
-                <button
-                  onClick={() => handleViewOriginalPdf(selectedDocument._id)}
-                  className="mt-3 w-full bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600 flex items-center justify-center"
-                >
-                  <span className="mr-2">📄</span> View Original PDF
-                </button>
+              <div className="text-sm text-gray-700 max-h-32 overflow-y-auto">
+                {selectedDocuments.map((doc, index) => (
+                  <div key={doc._id} className={`mb-2 p-2 rounded ${activeDocumentTab === doc._id ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'}`}>
+                    <p><strong>{doc.filename}</strong></p>
+                    <p className="text-xs text-gray-500">Sections: {doc.total_sections} | ID: {doc._id.slice(0, 8)}...</p>
+                  </div>
+                ))}
               </div>
+              {activeDocumentTab && (() => {
+                const activeDoc = selectedDocuments.find(doc => doc._id === activeDocumentTab);
+                return activeDoc ? (
+                  <button
+                    onClick={() => handleViewOriginalPdf(activeDoc._id)}
+                    className="mt-3 w-full bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600 flex items-center justify-center"
+                  >
+                    <span className="mr-2">📄</span> View Active PDF
+                  </button>
+                ) : null;
+              })()}
             </div>
           )}
 
@@ -516,16 +731,31 @@ function App() {
                 <blockquote className="border-l-4 border-red-500 pl-3 italic text-gray-700 mb-3">
                   {selectedText}
                 </blockquote>
+                {isSearchingSnippets && (
+                  <div className="text-center py-2 mb-3">
+                    <div className="text-sm text-gray-600">🔍 Searching for related content...</div>
+                  </div>
+                )}
                 <button
                   onClick={handleGeneratePodcast}
-                  disabled={isGeneratingPodcast}
-                  className={`w-full py-2 px-3 rounded text-white flex items-center justify-center ${isGeneratingPodcast ? 'bg-gray-400' : 'bg-green-500 hover:bg-green-600'}`}
+                  disabled={isGeneratingPodcast || snippets.length === 0}
+                  className={`w-full py-2 px-3 rounded text-white flex items-center justify-center ${
+                    isGeneratingPodcast || snippets.length === 0
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-green-500 hover:bg-green-600'
+                  }`}
+                  title={snippets.length === 0 ? 'Wait for semantic search to complete' : 'Generate audio overview'}
                 >
                   {isGeneratingPodcast ? '🔄 Generating...' : '🔊 Generate Audio Overview'}
                 </button>
+                {snippets.length === 0 && selectedText && !isSearchingSnippets && (
+                  <p className="text-xs text-gray-500 mt-2 text-center">
+                    💡 Audio generation will be available after semantic search finds related content
+                  </p>
+                )}
               </>
             ) : (
-              <p className="text-sm text-gray-500">No text selected</p>
+              <p className="text-sm text-gray-500">Select text from the PDF to automatically search for related content</p>
             )}
           </div>
           
@@ -540,59 +770,194 @@ function App() {
             </div>
           )}
 
-          {/* Snippets */}
-          <Snippets 
-            snippets={snippets}
-            selectedText={selectedText}
-            onSnippetClick={handleSnippetClick}
-            isLoading={isSearchingSnippets}
-          />
-
-          {/* Insights Panel */}
-          <InsightPanel 
-            contradictions={contradictions} 
-            alternateViewpoints={alternateViewpoints} 
-          />
-
-          {/* Options */}
-          <div className="flex space-x-4 mb-4 border-b border-[var(--border-color)]">
-            <button
-              className={`px-4 py-2 ${activeTab === 'snippets' ? 'text-[var(--highlight)] border-b-2 border-[var(--highlight)] -mb-px' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
-              onClick={() => setActiveTab('snippets')}
-            >
-              Snippets
-            </button>
-            <button
-              className={`px-4 py-2 ${activeTab === 'insights' ? 'text-[var(--highlight)] border-b-2 border-[var(--highlight)] -mb-px' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
-              onClick={() => setActiveTab('insights')}
-            >
-              Insights
-            </button>
-            <button
-              className={`px-4 py-2 ${activeTab === 'podcast' ? 'text-[var(--highlight)] border-b-2 border-[var(--highlight)] -mb-px' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
-              onClick={() => setActiveTab('podcast')}
-            >
-              Podcast
-            </button>
-            <button
-              className={`px-4 py-2 ${activeTab === 'explorer' ? 'text-[var(--highlight)] border-b-2 border-[var(--highlight)] -mb-px' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
-              onClick={() => setActiveTab('explorer')}
-            >
-              Explorer
-            </button>
-          </div>
-
-          {/* Podcast Mode */}
-            <div className="bg-[var(--card-bg)] rounded p-6 text-center border border-[var(--border-color)]">
-              <div className="text-4xl mb-2">🎙️</div>
-              <p className="text-sm text-[var(--text-secondary)]">
-                Generate an AI podcast from your selected text and related
-                snippets. Click "Generate" to create your personalized podcast.
-              </p>
-              <button className="mt-4 bg-[var(--highlight)] text-white px-4 py-2 rounded hover:bg-[var(--highlight-hover)] transition-colors">
-                Generate Podcast
+          {/* Analysis Tabs */}
+          <div className="bg-white rounded shadow mb-4">
+            <div className="flex border-b border-gray-200">
+              <button
+                className={`flex-1 px-4 py-3 text-sm font-medium text-center ${
+                  activeTab === 'snippets'
+                    ? 'text-red-600 border-b-2 border-red-600 bg-red-50'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+                onClick={() => setActiveTab('snippets')}
+              >
+                📄 Snippets
+              </button>
+              <button
+                className={`flex-1 px-4 py-3 text-sm font-medium text-center ${
+                  activeTab === 'insights'
+                    ? 'text-red-600 border-b-2 border-red-600 bg-red-50'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+                onClick={() => setActiveTab('insights')}
+              >
+                💡 Insights
+              </button>
+              <button
+                className={`flex-1 px-4 py-3 text-sm font-medium text-center ${
+                  activeTab === 'podcast'
+                    ? 'text-red-600 border-b-2 border-red-600 bg-red-50'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+                onClick={() => setActiveTab('podcast')}
+              >
+                🎙️ Audio
               </button>
             </div>
+            
+            {/* Tab Content */}
+            <div className="p-4">
+              {activeTab === 'snippets' && (
+                <Snippets 
+                  snippets={snippets}
+                  selectedText={selectedText}
+                  onSnippetClick={handleSnippetClick}
+                  isLoading={isSearchingSnippets}
+                />
+              )}
+              
+              {activeTab === 'insights' && (
+                <div>
+                  {isGeneratingInsights && (
+                    <div className="text-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto mb-2"></div>
+                      <p className="text-sm text-gray-600">Generating AI insights...</p>
+                    </div>
+                  )}
+                  
+                  {llmInsights && (
+                    <div className="space-y-4">
+                      {llmInsights.contradictory_viewpoints && llmInsights.contradictory_viewpoints.length > 0 && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                          <h4 className="font-medium text-red-800 mb-2 flex items-center">
+                            <span className="mr-2">⚔️</span> Contradictory Viewpoints
+                          </h4>
+                          <ul className="space-y-2">
+                            {llmInsights.contradictory_viewpoints.map((viewpoint, index) => (
+                              <li key={index} className="text-sm text-red-700 flex items-start">
+                                <span className="mr-2 mt-1">•</span>
+                                <span>{viewpoint}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      {llmInsights.alternate_applications && llmInsights.alternate_applications.length > 0 && (
+                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                          <h4 className="font-medium text-purple-800 mb-2 flex items-center">
+                            <span className="mr-2">🔄</span> Alternate Applications
+                          </h4>
+                          <ul className="space-y-2">
+                            {llmInsights.alternate_applications.map((application, index) => (
+                              <li key={index} className="text-sm text-purple-700 flex items-start">
+                                <span className="mr-2 mt-1">•</span>
+                                <span>{application}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      {llmInsights.contextual_insights && llmInsights.contextual_insights.length > 0 && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <h4 className="font-medium text-blue-800 mb-2 flex items-center">
+                            <span className="mr-2">🧠</span> Contextual Insights
+                          </h4>
+                          <ul className="space-y-2">
+                            {llmInsights.contextual_insights.map((insight, index) => (
+                              <li key={index} className="text-sm text-blue-700 flex items-start">
+                                <span className="mr-2 mt-1">•</span>
+                                <span>{insight}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      {llmInsights.cross_document_connections && llmInsights.cross_document_connections.length > 0 && (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                          <h4 className="font-medium text-green-800 mb-2 flex items-center">
+                            <span className="mr-2">🔗</span> Cross-Document Connections
+                          </h4>
+                          <ul className="space-y-2">
+                            {llmInsights.cross_document_connections.map((connection, index) => (
+                              <li key={index} className="text-sm text-green-700 flex items-start">
+                                <span className="mr-2 mt-1">•</span>
+                                <span>{connection}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Fallback to old insights if LLM insights not available */}
+                  {!llmInsights && !isGeneratingInsights && (
+                    <InsightPanel 
+                      contradictions={contradictions} 
+                      alternateViewpoints={alternateViewpoints} 
+                    />
+                  )}
+                  
+                  {!selectedText && !isGeneratingInsights && !llmInsights && (
+                    <div className="text-center py-8 text-gray-500">
+                      <div className="text-4xl mb-2">💡</div>
+                      <p className="text-sm">Select text from a PDF to generate AI-powered insights</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {activeTab === 'podcast' && (
+                <div className="text-center">
+                  <div className="text-4xl mb-3">🎙️</div>
+                  <h3 className="font-medium mb-3">Audio Overview</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Generate an AI-powered audio discussion based on your selected text and related insights.
+                  </p>
+                  
+                  {selectedText ? (
+                    <button
+                      onClick={handleGeneratePodcast}
+                      disabled={isGeneratingPodcast || snippets.length === 0}
+                      className={`w-full py-3 px-4 rounded-lg text-white font-medium flex items-center justify-center ${
+                        isGeneratingPodcast || snippets.length === 0
+                          ? 'bg-gray-400 cursor-not-allowed' 
+                          : 'bg-green-500 hover:bg-green-600'
+                      }`}
+                    >
+                      {isGeneratingPodcast ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Generating...
+                        </>
+                      ) : (
+                        <>🔊 Generate Audio Overview</>
+                      )}
+                    </button>
+                  ) : (
+                    <div className="text-sm text-gray-500 bg-gray-50 p-4 rounded-lg">
+                      Select text from a PDF to generate an audio overview
+                    </div>
+                  )}
+                  
+                  {snippets.length === 0 && selectedText && !isSearchingSnippets && (
+                    <p className="text-xs text-gray-500 mt-3">
+                      💡 Audio generation requires related snippets from semantic search
+                    </p>
+                  )}
+                  
+                  {selectedDocuments.length > 1 && (
+                    <p className="text-xs text-blue-600 mt-3 bg-blue-50 p-2 rounded">
+                      💡 Multiple documents selected - audio will include cross-document insights
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

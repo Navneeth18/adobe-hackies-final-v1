@@ -10,14 +10,22 @@ class TTSService:
     def configure(self):
         if settings.TTS_PROVIDER == "azure":
             try:
+                if not settings.AZURE_TTS_KEY or not settings.AZURE_TTS_REGION:
+                    print(f"[ERROR] Missing Azure TTS credentials: KEY={bool(settings.AZURE_TTS_KEY)}, REGION={bool(settings.AZURE_TTS_REGION)}")
+                    return
+                
                 self.speech_config = speechsdk.SpeechConfig(subscription=settings.AZURE_TTS_KEY, region=settings.AZURE_TTS_REGION)
-                print("Azure TTS Service configured.")
+                self.speech_config.speech_synthesis_voice_name = "en-US-JennyNeural"
+                print(f"[SUCCESS] Azure TTS Service configured with region: {settings.AZURE_TTS_REGION}")
             except Exception as e:
                 print(f"[ERROR] Failed to configure Azure TTS: {e}")
+                import traceback
+                traceback.print_exc()
 
-    async def generate_podcast_audio(self, selected_text, snippets=None, contradictions=None, alternate_viewpoints=None):
+    async def generate_podcast_audio(self, selected_text, snippets=None, contradictions=None, alternate_viewpoints=None, contextual_insights=None, cross_document_connections=None):
         """Generate a podcast-style audio file from selected text and insights"""
-        if not self.speech_config: raise RuntimeError("TTS Service not configured.")
+        if not self.speech_config: 
+            raise RuntimeError("TTS Service not configured. Please check Azure credentials.")
         
         # Generate a unique filename
         audio_id = str(uuid.uuid4())
@@ -44,16 +52,44 @@ class TTSService:
         if contradictions and len(contradictions) > 0:
             contradictions_content = "I've found some contradictory viewpoints: "
             for i, contradiction in enumerate(contradictions[:2]):
-                contradictions_content += f"{contradiction['text']}. "
+                if isinstance(contradiction, str):
+                    contradictions_content += f"{contradiction}. "
+                else:
+                    contradictions_content += f"{contradiction.get('text', str(contradiction))}. "
             contradictions_content += "\n"
         
-        # Alternative viewpoints
+        # Alternative viewpoints/applications
         viewpoints_content = ""
         if alternate_viewpoints and len(alternate_viewpoints) > 0:
-            viewpoints_content = "Here are some alternative perspectives: "
+            viewpoints_content = "Here are some alternative applications: "
             for i, viewpoint in enumerate(alternate_viewpoints[:2]):
-                viewpoints_content += f"{viewpoint['text']}. "
+                if isinstance(viewpoint, str):
+                    viewpoints_content += f"{viewpoint}. "
+                else:
+                    viewpoints_content += f"{viewpoint.get('text', str(viewpoint))}. "
             viewpoints_content += "\n"
+        
+        # Contextual insights
+        contextual_content = ""
+        if contextual_insights and len(contextual_insights) > 0:
+            contextual_content = "Here are some deeper contextual insights: "
+            for i, insight in enumerate(contextual_insights[:2]):
+                if isinstance(insight, str):
+                    contextual_content += f"{insight}. "
+                else:
+                    contextual_content += f"{insight.get('text', str(insight))}. "
+            contextual_content += "\n"
+        
+        # Cross-document connections
+        connections_content = ""
+        if cross_document_connections and len(cross_document_connections) > 0:
+            connections_content = "I've found connections across your documents: "
+            for i, connection in enumerate(cross_document_connections[:2]):
+                if isinstance(connection, str):
+                    connections_content += f"{connection}. "
+                else:
+                    connections_content += f"{connection.get('text', str(connection))}. "
+            connections_content += "\n"
         
         # Conclusion
         conclusion = "That concludes your personalized document insights podcast. Thank you for listening!"
@@ -86,21 +122,50 @@ class TTSService:
             </voice>
             <break time="1s"/>
             
+            <voice name="en-US-DavisNeural">
+                <prosody rate="medium">{contextual_content}</prosody>
+            </voice>
+            <break time="1s"/>
+            
+            <voice name="en-US-GuyNeural">
+                <prosody rate="medium">{connections_content}</prosody>
+            </voice>
+            <break time="1s"/>
+            
             <voice name="en-US-JennyNeural">
                 <prosody rate="medium">{conclusion}</prosody>
             </voice>
         </speak>
         """
         
-        audio_config = speechsdk.audio.AudioOutputConfig(filename=filename)
-        synthesizer = speechsdk.SpeechSynthesizer(speech_config=self.speech_config, audio_config=audio_config)
-        result = synthesizer.speak_ssml_async(ssml_string).get()
-        
-        if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
-            return filename
-        else:
-            cancellation = result.cancellation_details
-            print(f"Speech synthesis canceled: {cancellation.reason}, Details: {cancellation.error_details}")
-            return None
+        try:
+            print(f"[INFO] Starting audio synthesis for file: {filename}")
+            print(f"[INFO] SSML content length: {len(ssml_string)} characters")
+            
+            audio_config = speechsdk.audio.AudioOutputConfig(filename=filename)
+            synthesizer = speechsdk.SpeechSynthesizer(speech_config=self.speech_config, audio_config=audio_config)
+            
+            print("[INFO] Calling Azure TTS API...")
+            result = synthesizer.speak_ssml_async(ssml_string).get()
+            
+            if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+                print(f"[SUCCESS] Audio file generated: {filename}")
+                import os
+                if os.path.exists(filename):
+                    file_size = os.path.getsize(filename)
+                    print(f"[INFO] Generated file size: {file_size} bytes")
+                return filename
+            else:
+                cancellation = result.cancellation_details
+                error_msg = f"Speech synthesis canceled: {cancellation.reason}"
+                if cancellation.error_details:
+                    error_msg += f", Details: {cancellation.error_details}"
+                print(f"[ERROR] {error_msg}")
+                raise RuntimeError(error_msg)
+        except Exception as e:
+            print(f"[ERROR] TTS generation failed: {e}")
+            import traceback
+            traceback.print_exc()
+            raise RuntimeError(f"Failed to generate audio: {str(e)}")
 
 tts_service = TTSService()
