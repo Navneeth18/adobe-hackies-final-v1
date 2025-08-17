@@ -1,6 +1,7 @@
 # backend/services/recommendation_engine.py
 from sentence_transformers import SentenceTransformer, util
 import nltk
+import re
 from collections import defaultdict
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize, sent_tokenize
@@ -107,7 +108,6 @@ class RecommendationService:
         
     def find_contradictions(self, selected_text, section_contents):
         """Find contradictions between selected text and section contents"""
-        import re
         contradictions = []
         selected_text_lower = selected_text.lower()
         
@@ -141,7 +141,6 @@ class RecommendationService:
     
     def find_alternate_viewpoints(self, selected_text, section_contents):
         """Find alternate viewpoints between selected text and section contents"""
-        import re
         viewpoints = []
         selected_text_lower = selected_text.lower()
         
