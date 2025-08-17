@@ -1,0 +1,15 @@
+# backend/.gitignore
+venv/
+__pycache__/
+*.pyc
+.env
+.vscode/
+.idea/
+temp_*.pdf
+*.mp3
+get-pip.py
+*.log
+.DS_Store
+Thumbs.db
+temp_cluster_*/
+pdf_storage/
