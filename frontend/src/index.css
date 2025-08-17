@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+/* Theme variables */
+:root {
+  /* Light theme (default) */
+  --bg: #fff7f7;
+  --text-primary: #1e293b; /* slate-800 */
+  --text-secondary: #64748b; /* slate-500 */
+  --sidebar-bg: #fff7f7;
+  --card-bg: #ffffff;
+  --border-color: #e2e8f0; /* slate-200 */
+  --highlight: #ef4444; /* red-500 */
+  --button-primary: #ef4444; /* red-600 */
+  --button-secondary: #3b82f6; /* blue-500 */
+  --button-hover: #dc2626; /* red-700 */
+  --shadow: rgba(0, 0, 0, 0.1);
+  --highlight-hover: #dc2626;
+  --highlight-bg: #fef2f2;
+  --highlight-bg-light: #fee2e2;
+  --highlight-dark: #b91c1c;
+  --input-bg: #ffffff;
+  --button-secondary-bg: #e2e8f0;
+  --button-secondary-hover: #cbd5e1;
+  --hover-bg: #f1f5f9;
+}
+
+/* Dark theme */
+.dark-theme {
+  --bg: #1e1e2e;
+  --text-primary: #e2e8f0; /* slate-200 */
+  --text-secondary: #94a3b8; /* slate-400 */
+  --sidebar-bg: #181825;
+  --card-bg: #2a2a3c;
+  --border-color: #334155; /* slate-700 */
+  --highlight: #ef4444; /* red-500 */
+  --button-primary: #ef4444; /* red-600 */
+  --button-secondary: #3b82f6; /* blue-500 */
+  --button-hover: #dc2626; /* red-700 */
+  --shadow: rgba(0, 0, 0, 0.3);
+  --highlight-hover: #f87171;
+  --highlight-bg: #7f1d1d;
+  --highlight-bg-light: #450a0a;
+  --highlight-dark: #fca5a5;
+  --input-bg: #334155;
+  --button-secondary-bg: #475569;
+  --button-secondary-hover: #64748b;
+  --hover-bg: #27272a;
+}
+
+body { 
+  @apply bg-[var(--bg)] text-[var(--text-primary)] transition-colors duration-200;
+}
+
+/* Card styling */
+.card {
+  @apply bg-[var(--card-bg)] border border-[var(--border-color)] rounded-lg shadow-sm;
+}
+
+/* Button styling */
+.btn-primary {
+  @apply bg-[var(--button-primary)] text-white px-4 py-2 rounded hover:bg-[var(--button-hover)] transition-colors;
+}
+
+.btn-secondary {
+  @apply bg-[var(--button-secondary)] text-white px-4 py-2 rounded hover:opacity-90 transition-colors;
+}
