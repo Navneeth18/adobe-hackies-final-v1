@@ -151,7 +151,7 @@ async def semantic_search(request: dict):
                     "document_id": doc_id,
                     "document_filename": doc_info.get("filename", "Unknown"),
                     "document_cluster_id": doc_info.get("cluster_id"),
-                    "page_number": section.get("page_number"),
+                    "page_number": section.get("page"),
                     "similarity": sentence["similarity"]
                 })
 

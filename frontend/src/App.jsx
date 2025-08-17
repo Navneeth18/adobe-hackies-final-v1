@@ -92,6 +92,7 @@ function App() {
 
   // Load document content (separated for reuse)
   const loadDocumentContent = async (document) => {
+    // For duplicate documents, use the original ID for API calls
     const docId = document.isDuplicate ? document.originalId : document._id;
     
     // Check if we already have this document loaded (use original ID for duplicates)
@@ -354,7 +355,8 @@ function App() {
           filename: `${document.filename} (Section: ${snippet.section_title})`,
           isDuplicate: true,
           originalId: document._id,
-          targetPage: snippet.page_number
+          targetPage: snippet.page_number,
+          highlightText: snippet.text
         };
         
         const newSelection = [...selectedDocuments, duplicateDoc];
@@ -369,22 +371,37 @@ function App() {
         
       } else if (isAlreadyOpen) {
         // Document already open - switch to that tab and scroll to section
+        toast.loading("Navigating to section...");
+        
+        // Update the existing document with target page and highlight text
+        const updatedSelection = selectedDocuments.map(doc => 
+          doc._id === snippet.document_id 
+            ? { ...doc, targetPage: snippet.page_number, highlightText: snippet.text }
+            : doc
+        );
+        setSelectedDocuments(updatedSelection);
         setActiveDocumentTab(snippet.document_id);
         await loadDocumentContent(document);
         
-        // TODO: Implement scroll to specific page/section
-        toast.success(`Switched to ${document.filename} - ${snippet.section_title}`);
+        toast.dismiss();
+        toast.success(`Navigated to ${document.filename} - ${snippet.section_title}`);
         
       } else {
         // New document - open in new tab without affecting current working PDF
         toast.loading("Opening document in new tab...");
         
-        const newSelection = [...selectedDocuments, document];
+        const newDocument = {
+          ...document,
+          targetPage: snippet.page_number,
+          highlightText: snippet.text
+        };
+        
+        const newSelection = [...selectedDocuments, newDocument];
         setSelectedDocuments(newSelection);
         setActiveDocumentTab(document._id);
         
         // Load the document content
-        await loadDocumentContent(document);
+        await loadDocumentContent(newDocument);
         
         toast.dismiss();
         toast.success(`Opened ${document.filename} in new tab`);
@@ -664,6 +681,10 @@ function App() {
                 targetPage={(() => {
                   const activeDoc = selectedDocuments.find(doc => doc._id === activeDocumentTab);
                   return activeDoc?.targetPage || null;
+                })()}
+                highlightText={(() => {
+                  const activeDoc = selectedDocuments.find(doc => doc._id === activeDocumentTab);
+                  return activeDoc?.highlightText || null;
                 })()}
               />
             ) : selectedDocuments.length > 0 && activeDocumentTab ? (
