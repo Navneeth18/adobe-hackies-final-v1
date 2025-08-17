@@ -13,6 +13,7 @@ class MultilingualPodcastRequest(BaseModel):
     document_id: str
     language: str = "en"
     summarize: bool = True
+    size: str = "medium"  # small, medium, large
 
 @router.post("/generate-podcast")
 async def generate_podcast(request: Dict):
@@ -117,7 +118,8 @@ async def generate_multilingual_podcast(request: MultilingualPodcastRequest):
         result = await enhanced_podcast_service.generate_multilingual_podcast_from_pdf(
             pdf_path=pdf_path,
             language=request.language,
-            summarize=request.summarize
+            summarize=request.summarize,
+            size=request.size
         )
 
         if not result["success"]:

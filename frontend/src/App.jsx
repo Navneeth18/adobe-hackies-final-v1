@@ -41,10 +41,34 @@ function App() {
   const [isGeneratingPodcast, setIsGeneratingPodcast] = useState(false);
   const [podcastAudioUrl, setPodcastAudioUrl] = useState(null);
 
-  // Fetch uploaded documents on component mount
+  // Multilingual podcast state
+  const [supportedLanguages, setSupportedLanguages] = useState({});
+  const [selectedLanguage, setSelectedLanguage] = useState('en');
+  const [selectedPodcastSize, setSelectedPodcastSize] = useState('medium');
+  const [isGeneratingMultilingualPodcast, setIsGeneratingMultilingualPodcast] = useState(false);
+  const [multilingualPodcastUrl, setMultilingualPodcastUrl] = useState(null);
+  const [multilingualPodcastId, setMultilingualPodcastId] = useState(null);
+  const [isGeneratingFullDocumentPodcast, setIsGeneratingFullDocumentPodcast] = useState(false);
+  const [fullDocumentPodcastUrl, setFullDocumentPodcastUrl] = useState(null);
+  const [fullDocumentPodcastId, setFullDocumentPodcastId] = useState(null);
+
+  // Fetch uploaded documents and supported languages on component mount
   useEffect(() => {
     fetchUploadedDocuments();
+    fetchSupportedLanguages();
   }, []);
+
+  // Fetch supported languages for multilingual podcasts
+  const fetchSupportedLanguages = async () => {
+    try {
+      const result = await apiService.getSupportedLanguages();
+      if (result.success) {
+        setSupportedLanguages(result.languages);
+      }
+    } catch (error) {
+      console.error('Failed to fetch supported languages:', error);
+    }
+  };
 
   // Fetch uploaded documents from backend
   const fetchUploadedDocuments = async () => {
@@ -327,6 +351,83 @@ function App() {
       toast.error(`Failed to generate podcast: ${error.message}`);
     } finally {
       setIsGeneratingPodcast(false);
+    }
+  };
+
+  // Handle multilingual podcast generation from selected text
+  const handleGenerateMultilingualPodcast = async () => {
+    if (!selectedText) {
+      toast.error("Please select text from a PDF first");
+      return;
+    }
+
+    setIsGeneratingMultilingualPodcast(true);
+    setMultilingualPodcastUrl(null);
+
+    try {
+      const languageName = supportedLanguages[selectedLanguage] || selectedLanguage;
+      toast.loading(`Generating ${selectedPodcastSize} podcast in ${languageName}...`);
+
+      // Create a temporary document with selected text for podcast generation
+      const result = await apiService.generateMultilingualPodcast(
+        activeDocumentTab, // Use the active document ID
+        selectedLanguage,
+        true, // Always summarize
+        selectedPodcastSize
+      );
+
+      if (result.success && result.audio_id) {
+        setMultilingualPodcastId(result.audio_id);
+        setMultilingualPodcastUrl(`http://localhost:8000/api/v1/audio/serve-multilingual/${result.audio_id}`);
+        toast.dismiss();
+        toast.success(`${selectedPodcastSize.charAt(0).toUpperCase() + selectedPodcastSize.slice(1)} podcast generated successfully in ${result.language_name}!`);
+      } else {
+        throw new Error(result.error || "Failed to generate multilingual podcast");
+      }
+    } catch (error) {
+      console.error("Failed to generate multilingual podcast:", error);
+      toast.dismiss();
+      toast.error(`Failed to generate podcast: ${error.message}`);
+    } finally {
+      setIsGeneratingMultilingualPodcast(false);
+    }
+  };
+
+  // Handle full document podcast generation
+  const handleGenerateFullDocumentPodcast = async () => {
+    if (!activeDocumentTab) {
+      toast.error("Please select a document first");
+      return;
+    }
+
+    setIsGeneratingFullDocumentPodcast(true);
+    setFullDocumentPodcastUrl(null);
+
+    try {
+      const languageName = supportedLanguages[selectedLanguage] || selectedLanguage;
+      toast.loading(`Generating ${selectedPodcastSize} full document podcast in ${languageName}...`);
+
+      const result = await apiService.generateMultilingualPodcast(
+        activeDocumentTab,
+        selectedLanguage,
+        true, // Always summarize for full document
+        selectedPodcastSize
+      );
+
+      if (result.success && result.audio_id) {
+        setFullDocumentPodcastId(result.audio_id);
+        setFullDocumentPodcastUrl(`http://localhost:8000/api/v1/audio/serve-multilingual/${result.audio_id}`);
+        toast.dismiss();
+        toast.success(`Full document ${selectedPodcastSize} podcast generated successfully in ${result.language_name}!`);
+      } else {
+        throw new Error(result.error || "Failed to generate full document podcast");
+      }
+    } catch (error) {
+      console.error("Failed to generate full document podcast:", error);
+      toast.dismiss();
+      toast.error(`Failed to generate podcast: ${error.message}`);
+    } finally {
+      setIsGeneratingFullDocumentPodcast(false);
     }
   };
 
@@ -973,49 +1074,105 @@ function App() {
               )}
               
               {activeTab === 'podcast' && (
-                <div className="text-center">
-                  <div className="text-4xl mb-3">🎙️</div>
-                  <h3 className="font-medium mb-3">Audio Overview</h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Generate an AI-powered audio discussion based on your selected text and related insights.
-                  </p>
-                  
-                  {selectedText ? (
-                    <button
-                      onClick={handleGeneratePodcast}
-                      disabled={isGeneratingPodcast || snippets.length === 0}
-                      className={`w-full py-3 px-4 rounded-lg text-white font-medium flex items-center justify-center ${
-                        isGeneratingPodcast || snippets.length === 0
-                          ? 'bg-gray-400 cursor-not-allowed' 
-                          : 'bg-green-500 hover:bg-green-600'
-                      }`}
-                    >
-                      {isGeneratingPodcast ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Generating...
-                        </>
-                      ) : (
-                        <>🔊 Generate Audio Overview</>
-                      )}
-                    </button>
-                  ) : (
-                    <div className="text-sm text-gray-500 bg-gray-50 p-4 rounded-lg">
-                      Select text from a PDF to generate an audio overview
+                <div className="space-y-6">
+                  {/* Header */}
+                  <div className="text-center">
+                    <div className="text-4xl mb-3">🎙️</div>
+                    <h3 className="font-medium mb-3">AI Podcast Generator</h3>
+                    <p className="text-sm text-gray-600">
+                      Generate AI-powered audio content from your PDFs in multiple languages and sizes.
+                    </p>
+                  </div>
+
+                  {/* Language and Size Selection */}
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="font-medium mb-3">🌍 Language & Size Settings</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Language</label>
+                        <select
+                          value={selectedLanguage}
+                          onChange={(e) => setSelectedLanguage(e.target.value)}
+                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          {Object.entries(supportedLanguages).map(([code, name]) => (
+                            <option key={code} value={code}>{name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Podcast Size</label>
+                        <select
+                          value={selectedPodcastSize}
+                          onChange={(e) => setSelectedPodcastSize(e.target.value)}
+                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="small">Small (2-5 min)</option>
+                          <option value="medium">Medium (5-10 min)</option>
+                          <option value="large">Large (10-20 min)</option>
+                        </select>
+                      </div>
                     </div>
-                  )}
-                  
-                  {snippets.length === 0 && selectedText && !isSearchingSnippets && (
-                    <p className="text-xs text-gray-500 mt-3">
-                      💡 Audio generation requires related snippets from semantic search
+                  </div>
+
+                  {/* Full Document Podcast */}
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-medium mb-3 flex items-center">
+                      <span className="mr-2">📄</span> Full Document Podcast
+                    </h4>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Generate a comprehensive podcast from the entire document.
                     </p>
-                  )}
+
+                    {activeDocumentTab ? (
+                      <button
+                        onClick={handleGenerateFullDocumentPodcast}
+                        disabled={isGeneratingFullDocumentPodcast}
+                        className={`w-full py-2 px-4 rounded text-white flex items-center justify-center ${
+                          isGeneratingFullDocumentPodcast
+                            ? 'bg-gray-400 cursor-not-allowed'
+                            : 'bg-green-500 hover:bg-green-600'
+                        }`}
+                      >
+                        {isGeneratingFullDocumentPodcast ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Generating full {selectedPodcastSize} podcast...
+                          </>
+                        ) : (
+                          <>🎙️ Generate Full Document Podcast ({selectedPodcastSize})</>
+                        )}
+                      </button>
+                    ) : (
+                      <div className="text-sm text-gray-500 bg-gray-50 p-4 rounded-lg text-center">
+                        Select a document to generate a full document podcast
+                      </div>
+                    )}
+
+                    {/* Full Document Podcast Player */}
+                    {fullDocumentPodcastUrl && (
+                      <div className="mt-4 bg-green-50 p-4 rounded-lg">
+                        <h5 className="font-medium mb-2">🎙️ Full Document Podcast</h5>
+                        <audio controls className="w-full mb-2" src={fullDocumentPodcastUrl}></audio>
+                        <div className="text-xs text-gray-500">
+                          Audio ID: {fullDocumentPodcastId} | Language: {supportedLanguages[selectedLanguage]} | Size: {selectedPodcastSize}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   
-                  {selectedDocuments.length > 1 && (
-                    <p className="text-xs text-blue-600 mt-3 bg-blue-50 p-2 rounded">
-                      💡 Multiple documents selected - audio will include cross-document insights
-                    </p>
-                  )}
+
+                  {/* Tips */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="font-medium text-blue-800 mb-2">💡 Tips</h4>
+                    <ul className="text-sm text-blue-700 space-y-1">
+                      <li>• <strong>Small:</strong> Quick summaries, perfect for overviews</li>
+                      <li>• <strong>Medium:</strong> Balanced content with key details</li>
+                      <li>• <strong>Large:</strong> Comprehensive coverage with examples</li>
+                      
+                    </ul>
+                  </div>
                 </div>
               )}
             </div>

@@ -139,18 +139,36 @@ class EnhancedPodcastService:
             logger.error(f"Error extracting text from PDF: {e}")
             raise RuntimeError(f"Failed to extract text from PDF: {str(e)}")
 
-    def _target_summary_words(self, total_words: int) -> int:
-        """Scale summary length with document size, clamp to sane bounds."""
+    def _target_summary_words(self, total_words: int, size: str = "medium") -> int:
+        """Scale summary length with document size and requested size, clamp to sane bounds."""
+        # Base ratios for medium size
         if total_words < 1500:
-            ratio = 0.22
+            base_ratio = 0.22
         elif total_words < 5000:
-            ratio = 0.16
+            base_ratio = 0.16
         elif total_words < 15000:
-            ratio = 0.12
+            base_ratio = 0.12
         else:
-            ratio = 0.08
-        # Clamp between 250 and 8000 words
-        return max(250, min(int(total_words * ratio), 8000))
+            base_ratio = 0.08
+
+        # Adjust ratio based on size
+        size_multipliers = {
+            "small": 0.6,   # 60% of medium
+            "medium": 1.0,  # 100% (base)
+            "large": 1.8    # 180% of medium
+        }
+
+        ratio = base_ratio * size_multipliers.get(size.lower(), 1.0)
+
+        # Size-specific bounds
+        if size.lower() == "small":
+            min_words, max_words = 150, 3000
+        elif size.lower() == "large":
+            min_words, max_words = 500, 15000
+        else:  # medium
+            min_words, max_words = 250, 8000
+
+        return max(min_words, min(int(total_words * ratio), max_words))
 
     def _split_text(self, text: str, chunk_chars: int = 8000) -> List[str]:
         """Split text into manageable chunks"""
@@ -193,14 +211,14 @@ class EnhancedPodcastService:
                 return " ".join(words[:target_words]) + "..."
             return text
 
-    def summarize_text(self, text: str, target_language_for_tokenizer: str = "english") -> str:
+    def summarize_text(self, text: str, target_language_for_tokenizer: str = "english", size: str = "medium") -> str:
         """Summarize long text by chunking, then optional second pass."""
         if not text.strip():
             raise ValueError("No selectable text found. If your PDF is scanned images, run OCR first.")
 
         words = text.split()
         total_words = len(words)
-        target_words = self._target_summary_words(total_words)
+        target_words = self._target_summary_words(total_words, size)
         approx_words_per_sentence = 22
         target_sentences_total = max(10, target_words // approx_words_per_sentence)
 
@@ -347,6 +365,7 @@ class EnhancedPodcastService:
         translate: bool = True,
         output_dir: str = "podcasts",
         base_filename: Optional[str] = None,
+        size: str = "medium",
     ) -> Path:
         """Generate podcast from PDF using Edge TTS"""
         # Check dependencies
@@ -361,7 +380,7 @@ class EnhancedPodcastService:
             )
 
         # Summarize using LexRank
-        summary_en = self.summarize_text(text, target_language_for_tokenizer="english")
+        summary_en = self.summarize_text(text, target_language_for_tokenizer="english", size=size)
 
         if translate and target_lang.lower() not in ("en", "en-us", "en-in"):
             summary = self.translate_summary(summary_en, target_lang)
@@ -383,7 +402,8 @@ class EnhancedPodcastService:
         self,
         pdf_path: str,
         language: str = "en",
-        summarize: bool = True
+        summarize: bool = True,
+        size: str = "medium"
     ) -> Dict[str, Any]:
         """
         Generate a multilingual podcast from PDF
@@ -418,7 +438,8 @@ class EnhancedPodcastService:
                 target_lang=language,
                 translate=True,
                 output_dir=output_dir,
-                base_filename=f"podcast_{audio_id}"
+                base_filename=f"podcast_{audio_id}",
+                size=size
             )
 
             # Get file info
