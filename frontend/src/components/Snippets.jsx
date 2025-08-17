@@ -50,12 +50,18 @@ const Snippets = ({ snippets, selectedText, onSnippetClick, isLoading }) => {
                 <h4 className="text-sm font-medium text-[var(--text-primary)] mb-1">
                   {snippet.section_title}
                 </h4>
-                <p className="text-xs text-[var(--text-secondary)]">
-                  Page {snippet.page_number} • Relevance: {Math.round(snippet.similarity * 100)}%
-                </p>
+                <div className="text-xs text-[var(--text-secondary)] space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs">
+                      📄 {snippet.document_filename || 'Unknown Document'}
+                    </span>
+                    <span>Page {snippet.page_number}</span>
+                  </div>
+                  <div>Relevance: {Math.round(snippet.similarity * 100)}%</div>
+                </div>
               </div>
               <button className="text-xs bg-[var(--highlight)] text-white px-2 py-1 rounded hover:bg-[var(--highlight-hover)]">
-                View
+                Open
               </button>
             </div>
             <p className="text-sm text-[var(--text-primary)] leading-relaxed">

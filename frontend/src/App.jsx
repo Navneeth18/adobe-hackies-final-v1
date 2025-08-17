@@ -41,30 +41,10 @@ function App() {
   const [isGeneratingPodcast, setIsGeneratingPodcast] = useState(false);
   const [podcastAudioUrl, setPodcastAudioUrl] = useState(null);
 
-  // Multilingual podcast state
-  const [supportedLanguages, setSupportedLanguages] = useState({});
-  const [selectedLanguage, setSelectedLanguage] = useState('en');
-  const [isGeneratingMultilingualPodcast, setIsGeneratingMultilingualPodcast] = useState(false);
-  const [multilingualPodcastUrl, setMultilingualPodcastUrl] = useState(null);
-  const [multilingualPodcastId, setMultilingualPodcastId] = useState(null);
-
-  // Fetch uploaded documents and supported languages on component mount
+  // Fetch uploaded documents on component mount
   useEffect(() => {
     fetchUploadedDocuments();
-    fetchSupportedLanguages();
   }, []);
-
-  // Fetch supported languages for multilingual podcasts
-  const fetchSupportedLanguages = async () => {
-    try {
-      const result = await apiService.getSupportedLanguages();
-      if (result.success) {
-        setSupportedLanguages(result.languages);
-      }
-    } catch (error) {
-      console.error('Failed to fetch supported languages:', error);
-    }
-  };
 
   // Fetch uploaded documents from backend
   const fetchUploadedDocuments = async () => {
@@ -112,14 +92,12 @@ function App() {
 
   // Load document content (separated for reuse)
   const loadDocumentContent = async (document) => {
-    // Check if we already have this document loaded
-    if (documentFiles[document._id]) {
-      setSelectedFile(documentFiles[document._id]);
-      // Skip sections fetch since endpoint doesn't exist
-      // if (documentSections.length === 0) {
-      //   const response = await apiService.getDocumentSections(document._id);
-      //   setDocumentSections(response.sections || []);
-      // }
+    // For duplicate documents, use the original ID for API calls
+    const docId = document.isDuplicate ? document.originalId : document._id;
+    
+    // Check if we already have this document loaded (use original ID for duplicates)
+    if (documentFiles[docId]) {
+      setSelectedFile(documentFiles[docId]);
       return;
     }
     
@@ -128,15 +106,15 @@ function App() {
     try {
       // Fetch PDF directly instead of sections
       toast.loading("Fetching PDF...");
-      const pdfBlob = await apiService.getDocumentPdf(document._id);
+      const pdfBlob = await apiService.getDocumentPdf(docId);
       
       // Create a file object from the blob to display in the PDF viewer
       const file = new File([pdfBlob], `${document.filename}`, { type: 'application/pdf' });
       
-      // Store the file in our document files cache
+      // Store the file in our document files cache (use original ID for duplicates)
       setDocumentFiles(prev => ({
         ...prev,
-        [document._id]: file
+        [docId]: file
       }));
       
       setSelectedFile(file);
@@ -144,9 +122,6 @@ function App() {
       toast.dismiss();
       toast.success("PDF loaded in viewer");
       
-      // Skip sections fetch since endpoint doesn't exist
-      // const response = await apiService.getDocumentSections(document._id);
-      // setDocumentSections(response.sections || []);
       setDocumentSections([]); // Set empty sections
     } catch (error) {
       console.error("Failed to fetch PDF or sections:", error);
@@ -235,12 +210,19 @@ function App() {
     const newSelection = selectedDocuments.filter(doc => doc._id !== document._id);
     setSelectedDocuments(newSelection);
     
-    // Remove from document files cache
-    setDocumentFiles(prev => {
-      const newFiles = { ...prev };
-      delete newFiles[document._id];
-      return newFiles;
-    });
+    // Only remove from cache if no other tabs are using the same original document
+    const docId = document.isDuplicate ? document.originalId : document._id;
+    const stillInUse = newSelection.some(doc => 
+      (doc.isDuplicate ? doc.originalId : doc._id) === docId
+    );
+    
+    if (!stillInUse) {
+      setDocumentFiles(prev => {
+        const newFiles = { ...prev };
+        delete newFiles[docId];
+        return newFiles;
+      });
+    }
     
     if (activeDocumentTab === document._id) {
       setActiveDocumentTab(newSelection.length > 0 ? newSelection[0]._id : null);
@@ -348,46 +330,7 @@ function App() {
     }
   };
 
-  // Handle multilingual podcast generation from PDF
-  const handleGenerateMultilingualPodcast = async (documentId) => {
-    if (!documentId) {
-      toast.error("Please select a document first");
-      return;
-    }
-
-    setIsGeneratingMultilingualPodcast(true);
-    setMultilingualPodcastUrl(null);
-
-    try {
-      const languageName = supportedLanguages[selectedLanguage] || selectedLanguage;
-      toast.loading(`Generating podcast in ${languageName}...`);
-
-      const result = await apiService.generateMultilingualPodcast(
-        documentId,
-        selectedLanguage,
-        true // Always summarize for better podcast experience
-      );
-
-      if (result.success && result.audio_id) {
-        setMultilingualPodcastId(result.audio_id);
-
-        // Set the audio URL to the multilingual serving endpoint
-        setMultilingualPodcastUrl(`http://localhost:8000/api/v1/audio/serve-multilingual/${result.audio_id}`);
-        toast.dismiss();
-        toast.success(`Podcast generated successfully in ${result.language_name}!`);
-      } else {
-        throw new Error(result.error || "Failed to generate multilingual podcast");
-      }
-    } catch (error) {
-      console.error("Failed to generate multilingual podcast:", error);
-      toast.dismiss();
-      toast.error(`Failed to generate podcast: ${error.message}`);
-    } finally {
-      setIsGeneratingMultilingualPodcast(false);
-    }
-  };
-
-  // Handle snippet click to navigate to specific section
+  // Handle snippet click to navigate to specific section with smart tab management
   const handleSnippetClick = async (snippet) => {
     try {
       // Find the document that contains this snippet
@@ -397,13 +340,76 @@ function App() {
         return;
       }
 
-      // Load the document and navigate to the specific section
-      await handleDocumentSelect(document);
+      const currentActiveDoc = selectedDocuments.find(doc => doc._id === activeDocumentTab);
+      const isFromSameDocument = currentActiveDoc && currentActiveDoc._id === snippet.document_id;
+      const isAlreadyOpen = selectedDocuments.some(doc => doc._id === snippet.document_id);
+
+      if (isFromSameDocument) {
+        // Same document - open duplicate in new tab and scroll to section
+        toast.loading("Opening section in new tab...");
+        
+        // Create a duplicate tab by adding the document again with a unique identifier
+        const duplicateDoc = { 
+          ...document, 
+          _id: `${document._id}_duplicate_${Date.now()}`,
+          filename: `${document.filename} (Section: ${snippet.section_title})`,
+          isDuplicate: true,
+          originalId: document._id,
+          targetPage: snippet.page_number,
+          highlightText: snippet.text
+        };
+        
+        const newSelection = [...selectedDocuments, duplicateDoc];
+        setSelectedDocuments(newSelection);
+        setActiveDocumentTab(duplicateDoc._id);
+        
+        // Load the document content for the duplicate
+        await loadDocumentContent(document);
+        
+        toast.dismiss();
+        toast.success(`Opened "${snippet.section_title}" in new tab`);
+        
+      } else if (isAlreadyOpen) {
+        // Document already open - switch to that tab and scroll to section
+        toast.loading("Navigating to section...");
+        
+        // Update the existing document with target page and highlight text
+        const updatedSelection = selectedDocuments.map(doc => 
+          doc._id === snippet.document_id 
+            ? { ...doc, targetPage: snippet.page_number, highlightText: snippet.text }
+            : doc
+        );
+        setSelectedDocuments(updatedSelection);
+        setActiveDocumentTab(snippet.document_id);
+        await loadDocumentContent(document);
+        
+        toast.dismiss();
+        toast.success(`Navigated to ${document.filename} - ${snippet.section_title}`);
+        
+      } else {
+        // New document - open in new tab without affecting current working PDF
+        toast.loading("Opening document in new tab...");
+        
+        const newDocument = {
+          ...document,
+          targetPage: snippet.page_number,
+          highlightText: snippet.text
+        };
+        
+        const newSelection = [...selectedDocuments, newDocument];
+        setSelectedDocuments(newSelection);
+        setActiveDocumentTab(document._id);
+        
+        // Load the document content
+        await loadDocumentContent(newDocument);
+        
+        toast.dismiss();
+        toast.success(`Opened ${document.filename} in new tab`);
+      }
       
-      // TODO: Implement goToLocation to navigate to specific page/section
-      toast.success(`Navigated to ${document.filename} - ${snippet.section_title}`);
     } catch (error) {
       console.error("Failed to navigate to snippet:", error);
+      toast.dismiss();
       toast.error("Failed to navigate to snippet");
     }
   };
@@ -672,6 +678,14 @@ function App() {
               <PdfViewer 
                 file={selectedFile} 
                 onTextSelection={handleTextSelection}
+                targetPage={(() => {
+                  const activeDoc = selectedDocuments.find(doc => doc._id === activeDocumentTab);
+                  return activeDoc?.targetPage || null;
+                })()}
+                highlightText={(() => {
+                  const activeDoc = selectedDocuments.find(doc => doc._id === activeDocumentTab);
+                  return activeDoc?.highlightText || null;
+                })()}
               />
             ) : selectedDocuments.length > 0 && activeDocumentTab ? (
               <div className="p-6">
@@ -814,20 +828,6 @@ function App() {
               <audio controls className="w-full" src={podcastAudioUrl}></audio>
               <div className="text-xs text-gray-500 mt-2">
                 Audio ID: {podcastAudioId}
-              </div>
-            </div>
-          )}
-
-          {/* Multilingual Podcast Player */}
-          {multilingualPodcastUrl && (
-            <div className="bg-white rounded p-4 shadow mb-4">
-              <h3 className="font-medium mb-2">🌍 Multilingual Podcast</h3>
-              <div className="text-sm text-gray-600 mb-2">
-                Language: {supportedLanguages[selectedLanguage] || selectedLanguage}
-              </div>
-              <audio controls className="w-full" src={multilingualPodcastUrl}></audio>
-              <div className="text-xs text-gray-500 mt-2">
-                Audio ID: {multilingualPodcastId}
               </div>
             </div>
           )}
@@ -1016,61 +1016,6 @@ function App() {
                       💡 Multiple documents selected - audio will include cross-document insights
                     </p>
                   )}
-
-                  {/* Multilingual Podcast Section */}
-                  <div className="border-t mt-6 pt-6">
-                    <div className="text-center">
-                      <div className="text-3xl mb-3">🌍</div>
-                      <h3 className="font-medium mb-3">Multilingual PDF Podcast</h3>
-                      <p className="text-sm text-gray-600 mb-4">
-                        Generate a complete podcast from the entire PDF document in your preferred language.
-                      </p>
-
-                      {/* Language Selection */}
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Select Language:
-                        </label>
-                        <select
-                          value={selectedLanguage}
-                          onChange={(e) => setSelectedLanguage(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          {Object.entries(supportedLanguages).map(([code, name]) => (
-                            <option key={code} value={code}>
-                              {name} ({code})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Generate Button */}
-                      {activeDocumentTab ? (
-                        <button
-                          onClick={() => handleGenerateMultilingualPodcast(activeDocumentTab)}
-                          disabled={isGeneratingMultilingualPodcast}
-                          className={`w-full py-3 px-4 rounded-lg text-white font-medium flex items-center justify-center ${
-                            isGeneratingMultilingualPodcast
-                              ? 'bg-gray-400 cursor-not-allowed'
-                              : 'bg-blue-500 hover:bg-blue-600'
-                          }`}
-                        >
-                          {isGeneratingMultilingualPodcast ? (
-                            <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                              Generating Podcast...
-                            </>
-                          ) : (
-                            `🎧 Generate ${supportedLanguages[selectedLanguage] || 'Multilingual'} Podcast`
-                          )}
-                        </button>
-                      ) : (
-                        <div className="text-sm text-gray-500 bg-gray-50 p-4 rounded-lg">
-                          Select a document to generate multilingual podcast
-                        </div>
-                      )}
-                    </div>
-                  </div>
                 </div>
               )}
             </div>

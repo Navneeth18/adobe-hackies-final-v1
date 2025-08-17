@@ -1,9 +1,18 @@
 import { useEffect, useState, useRef } from "react";
 
-const PdfViewer = ({ file, onTextSelection, onGenerateAudio }) => {
+const PdfViewer = ({ file, onTextSelection, onGenerateAudio, targetPage, highlightText }) => {
+  // Debug logging for navigation props
+  useEffect(() => {
+    if (targetPage || highlightText) {
+      console.log('PdfViewer received navigation props:', { targetPage, highlightText });
+    }
+  }, [targetPage, highlightText]);
   const [directSelection, setDirectSelection] = useState("");
   const viewerRef = useRef(null);
   const [selectionInfo, setSelectionInfo] = useState(null);
+  const [isViewerReady, setIsViewerReady] = useState(false);
+  const [pdfApis, setPdfApis] = useState(null);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   useEffect(() => {
     let selectionTimeout;
@@ -88,6 +97,93 @@ const PdfViewer = ({ file, onTextSelection, onGenerateAudio }) => {
           previewFilePromise.then((adobeViewer) => {
             adobeViewer.getAPIs().then((apis) => {
               apis.enableTextSelection(true);
+              setPdfApis(apis);
+              setIsViewerReady(true);
+
+              // Navigate to target page and highlight text if specified
+              if (targetPage && targetPage > 0) {
+                // Multiple attempts with different timing and methods
+                const attemptNavigation = (attempt = 1) => {
+                  const delay = attempt === 1 ? 2000 : attempt * 1000;
+                  
+                  setTimeout(() => {
+                    console.log(`Navigation attempt ${attempt} to page ${targetPage}`);
+                    setIsNavigating(true);
+                    
+                    // Try different navigation methods with detailed error logging
+                    const tryMethod = async (methodName, promise) => {
+                      try {
+                        const result = await promise;
+                        console.log(`✅ ${methodName} succeeded:`, result);
+                        return result;
+                      } catch (error) {
+                        console.log(`❌ ${methodName} failed:`, error);
+                        return null;
+                      }
+                    };
+                    
+                    const navigationPromises = [
+                      // Method 1: gotoLocation with page number (1-based)
+                      tryMethod('gotoLocation(pageNumber)', apis.gotoLocation(targetPage)),
+                      // Method 2: gotoLocation with page object
+                      tryMethod('gotoLocation({pageNumber})', apis.gotoLocation({ pageNumber: targetPage })),
+                      // Method 3: gotoLocation with different format
+                      tryMethod('gotoLocation({page})', apis.gotoLocation({ page: targetPage })),
+                      // Method 4: Try 0-based indexing
+                      tryMethod('gotoLocation(pageNumber-1)', apis.gotoLocation(targetPage - 1)),
+                      // Method 5: Try with location object
+                      tryMethod('gotoLocation({location})', apis.gotoLocation({ location: { pageNumber: targetPage } }))
+                    ];
+                    
+                    Promise.allSettled(navigationPromises).then((results) => {
+                      const successful = results.some(result => result.status === 'fulfilled' && result.value !== null);
+                      
+                      if (successful) {
+                        console.log(`Successfully navigated to page ${targetPage}`);
+                        setIsNavigating(false);
+                        
+                        // If we have text to highlight, search and highlight it
+                        if (highlightText && highlightText.trim()) {
+                          setTimeout(() => {
+                            apis.search(highlightText.trim()).then((searchResult) => {
+                              if (searchResult && searchResult.length > 0) {
+                                console.log(`Found and highlighted text: "${highlightText}"`);
+                              } else {
+                                console.warn(`No search results found for: "${highlightText}"`);
+                              }
+                            }).catch((error) => {
+                              console.warn(`Failed to search/highlight text "${highlightText}":`, error);
+                            });
+                          }, 1000); // Wait for page navigation to complete
+                        }
+                      } else {
+                        console.warn(`Navigation attempt ${attempt} failed for page ${targetPage}`);
+                        
+                        // Retry up to 3 times
+                        if (attempt < 3) {
+                          attemptNavigation(attempt + 1);
+                        } else {
+                          console.error(`All navigation attempts failed for page ${targetPage}`);
+                          setIsNavigating(false);
+                          // Fallback: try to scroll to approximate position
+                          try {
+                            const pdfContainer = document.getElementById('adobe-dc-view');
+                            if (pdfContainer) {
+                              const estimatedHeight = (targetPage - 1) * 800; // Rough estimate
+                              pdfContainer.scrollTop = estimatedHeight;
+                              console.log(`Fallback: Scrolled to estimated position for page ${targetPage}`);
+                            }
+                          } catch (scrollError) {
+                            console.warn('Fallback scroll also failed:', scrollError);
+                          }
+                        }
+                      }
+                    });
+                  }, delay);
+                };
+                
+                attemptNavigation();
+              }
 
               // ---- Adobe polling (debounced every 1s) ----
               const checkForSelection = () => {
@@ -129,7 +225,7 @@ const PdfViewer = ({ file, onTextSelection, onGenerateAudio }) => {
         .querySelectorAll(".selection-notification")
         .forEach((n) => n.remove());
     };
-  }, [file, onTextSelection]);
+  }, [file, onTextSelection, targetPage, highlightText]);
 
   const showSelectionFeedback = (text, rect) => {
     try {
@@ -188,6 +284,12 @@ const PdfViewer = ({ file, onTextSelection, onGenerateAudio }) => {
 
   return (
     <div className="relative w-full h-full">
+      {isNavigating && (
+        <div className="absolute top-4 left-4 bg-blue-500 text-white px-3 py-2 rounded-lg shadow-lg z-50 flex items-center">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+          Navigating to page {targetPage}...
+        </div>
+      )}
       <div id="adobe-dc-view" className="w-full h-full"></div>
 
       {selectionInfo && (
