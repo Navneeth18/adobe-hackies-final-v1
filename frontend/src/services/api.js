@@ -235,6 +235,33 @@ export const apiService = {
     }
   },
 
+  // Upload cluster of documents
+  async uploadCluster(files) {
+    try {
+      const formData = new FormData();
+      
+      // Append all files to the form data
+      files.forEach((file, index) => {
+        formData.append('files', file);
+      });
+
+      const response = await fetch(`${API_BASE_URL}/documents/upload_cluster`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Upload failed: ${response.status} - ${errorText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error uploading cluster:', error);
+      throw error;
+    }
+  },
+
   // Get generated podcast audio
   getPodcast: async (audioId) => {
     try {
