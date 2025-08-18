@@ -3,8 +3,10 @@ import { apiService } from "./services/api.js";
 import PdfViewer from "./components/PdfViewer";
 import Snippets from "./components/Snippets";
 import InsightPanel from "./components/InsightPanel";
+import MindmapPanel from "./components/MindmapPanel";
 import ThemeToggle from "./components/ThemeToggle";
 import TalkToPdfModal from "./components/TalkToPdfModal";
+import MindmapModal from "./components/MindmapModal";
 import { useTheme } from "./context/ThemeContext";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -56,6 +58,12 @@ function App() {
 
   // Talk to PDF modal state
   const [isTalkToPdfOpen, setIsTalkToPdfOpen] = useState(false);
+
+  // Mindmap modal state
+  const [isMindmapOpen, setIsMindmapOpen] = useState(false);
+
+  // Mindmap state
+  const [generatedMindmapData, setGeneratedMindmapData] = useState(null);
 
   // Fetch uploaded documents and supported languages on component mount
   useEffect(() => {
@@ -181,6 +189,39 @@ function App() {
       console.error("Failed to fetch PDF:", error);
       toast.dismiss();
       toast.error(`Failed to load PDF: ${error.message}`);
+    }
+  };
+
+  // Handle mindmap generation from document library
+  const handleGenerateMindmapFromLibrary = async (document, event) => {
+    event.stopPropagation(); // Prevent document selection
+    
+    try {
+      toast.loading("Generating mindmap...");
+      
+      // Open mindmap modal
+      setIsMindmapOpen(true);
+      
+      // Select the document if not already selected
+      if (!selectedDocuments.some(doc => doc._id === document._id)) {
+        setSelectedDocuments([document]);
+      }
+      
+      // Generate mindmap using the API
+      const result = await apiService.generateMindmapFromDocument(document._id);
+      
+      if (result.success) {
+        // Store the generated mindmap data
+        setGeneratedMindmapData(result.mindmap);
+        toast.dismiss();
+        toast.success(`Mindmap generated for ${document.filename}!`);
+      } else {
+        throw new Error('Failed to generate mindmap');
+      }
+    } catch (error) {
+      console.error('Error generating mindmap:', error);
+      toast.dismiss();
+      toast.error(`Failed to generate mindmap: ${error.message}`);
     }
   };
 
@@ -600,7 +641,18 @@ function App() {
           >
             🎤 Talk to PDF
           </button>
-          
+          {/* <button
+            onClick={() => setIsMindmapOpen(true)}
+            disabled={uploadedDocuments.length === 0}
+            className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+              uploadedDocuments.length === 0
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-blue-600 text-white hover:bg-blue-700 hover:scale-105 shadow-lg"
+            }`}
+            title={uploadedDocuments.length === 0 ? "Upload documents first" : "Generate visual mindmaps from your PDFs"}
+          >
+            🧠 Mindmap
+          </button> */}
           <button className="bg-yellow-500 text-white px-3 py-1 rounded">
             Team Hackies
           </button>
@@ -711,6 +763,13 @@ function App() {
                       <div className="text-xs text-[var(--text-secondary)]">
                         {document.total_sections} sections
                       </div>
+                      <button
+                        onClick={(e) => handleGenerateMindmapFromLibrary(document, e)}
+                        className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded p-1 transition-colors"
+                        title={`Generate mindmap for ${document.filename}`}
+                      >
+                        🧠
+                      </button>
                       <button
                         onClick={(e) => handleDeleteDocument(document, e)}
                         className="text-red-500 hover:text-red-700 hover:bg-red-100 rounded p-1 transition-colors"
@@ -1203,6 +1262,7 @@ function App() {
                   </div>
                 </div>
               )}
+
             </div>
           </div>
         </div>
@@ -1213,7 +1273,18 @@ function App() {
         isOpen={isTalkToPdfOpen}
         onClose={() => setIsTalkToPdfOpen(false)}
         clusterId={clusterId}
-        documentIds={selectedDocuments.map(doc => doc._id)}
+        selectedDocuments={selectedDocuments}
+        selectedText={selectedText}
+      />
+
+      {/* Mindmap Modal */}
+      <MindmapModal
+        isOpen={isMindmapOpen}
+        onClose={() => setIsMindmapOpen(false)}
+        selectedDocuments={selectedDocuments}
+        selectedText={selectedText}
+        generatedMindmapData={generatedMindmapData}
+        onMindmapGenerated={setGeneratedMindmapData}
       />
     </div>
   );

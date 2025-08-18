@@ -325,4 +325,84 @@ export const apiService = {
       throw error;
     }
   },
+
+  // Mindmap API methods
+  async generateMindmapFromDocument(documentId, maxSections = 12, phrasesPerSection = 6) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/mindmap/generate/${documentId}?max_sections=${maxSections}&phrases_per_section=${phrasesPerSection}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error generating mindmap from document:', error);
+      throw error;
+    }
+  },
+
+  async generateMindmapFromUpload(file, maxSections = 12, phrasesPerSection = 6) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`${API_BASE_URL}/mindmap/generate?max_sections=${maxSections}&phrases_per_section=${phrasesPerSection}`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error generating mindmap from upload:', error);
+      throw error;
+    }
+  },
+
+  async generateMindmapFromText(text, title = 'Document', maxSections = 12, phrasesPerSection = 6) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/mindmap/text?max_sections=${maxSections}&phrases_per_section=${phrasesPerSection}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text, title }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error generating mindmap from text:', error);
+      throw error;
+    }
+  },
+
+  async downloadMindmap(documentId, format = 'mermaid', maxSections = 12, phrasesPerSection = 6) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/mindmap/download/${documentId}?format=${format}&max_sections=${maxSections}&phrases_per_section=${phrasesPerSection}`, {
+        method: 'GET',
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return response; // Return response for blob handling
+    } catch (error) {
+      console.error('Error downloading mindmap:', error);
+      throw error;
+    }
+  },
 };

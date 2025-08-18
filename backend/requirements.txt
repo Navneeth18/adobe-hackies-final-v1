@@ -29,3 +29,6 @@ pydub>=0.25.1
 deep-translator>=1.11.4
 langdetect>=1.0.9
 tqdm>=4.67.1
+
+# Mindmap Generation
+pdfminer.six>=20221105
