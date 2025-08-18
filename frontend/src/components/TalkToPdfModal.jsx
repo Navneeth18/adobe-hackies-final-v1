@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../services/api';
 import toast from 'react-hot-toast';
+import { Mic, MessageSquare, X, Pause, Play, Square, Send } from 'lucide-react';
 
 const TalkToPdfModal = ({ isOpen, onClose, clusterId, documentIds }) => {
   const [isListening, setIsListening] = useState(false);
@@ -307,7 +308,7 @@ const TalkToPdfModal = ({ isOpen, onClose, clusterId, documentIds }) => {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">
           <h2 className="text-xl font-bold flex items-center gap-2">
-            {inputMode === 'voice' ? '🎤' : '💬'} Talk to PDF
+            {inputMode === 'voice' ? <Mic className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />} Talk to PDF
           </h2>
           <div className="flex items-center gap-2">
             <button
@@ -319,7 +320,17 @@ const TalkToPdfModal = ({ isOpen, onClose, clusterId, documentIds }) => {
               }`}
               title={`Switch to ${inputMode === 'voice' ? 'text' : 'voice'} mode`}
             >
-              {inputMode === 'voice' ? '💬 Text' : '🎤 Voice'}
+              <span className="inline-flex items-center gap-1">
+                {inputMode === 'voice' ? (
+                  <>
+                    <MessageSquare className="w-4 h-4" /> Text
+                  </>
+                ) : (
+                  <>
+                    <Mic className="w-4 h-4" /> Voice
+                  </>
+                )}
+              </span>
             </button>
             <button
               onClick={clearConversation}
@@ -330,9 +341,9 @@ const TalkToPdfModal = ({ isOpen, onClose, clusterId, documentIds }) => {
             </button>
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 text-xl"
+              className="text-gray-500 hover:text-gray-700"
             >
-              ✕
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -341,7 +352,9 @@ const TalkToPdfModal = ({ isOpen, onClose, clusterId, documentIds }) => {
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {conversation.length === 0 && (
             <div className="text-center text-gray-500 py-8">
-              <div className="text-4xl mb-4">🎙️</div>
+              <div className="mb-4 flex justify-center">
+                <Mic className="w-10 h-10 text-gray-400" />
+              </div>
               <p>Click the microphone button below to start asking questions about your documents!</p>
             </div>
           )}
@@ -424,7 +437,7 @@ const TalkToPdfModal = ({ isOpen, onClose, clusterId, documentIds }) => {
                   {isProcessing ? (
                     <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div>
                   ) : (
-                    '📤'
+                    <Send className="w-5 h-5" />
                   )}
                 </button>
               </div>
@@ -437,21 +450,21 @@ const TalkToPdfModal = ({ isOpen, onClose, clusterId, documentIds }) => {
                       onClick={pauseSpeaking}
                       className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg"
                     >
-                      ⏸️ Pause
+                      <span className="inline-flex items-center gap-1"><Pause className="w-4 h-4" /> Pause</span>
                     </button>
                   ) : (
                     <button
                       onClick={resumeSpeaking}
                       className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg"
                     >
-                      ▶️ Resume
+                      <span className="inline-flex items-center gap-1"><Play className="w-4 h-4" /> Resume</span>
                     </button>
                   )}
                   <button
                     onClick={stopSpeaking}
                     className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg"
                   >
-                    ⏹️ Stop
+                    <span className="inline-flex items-center gap-1"><Square className="w-4 h-4" /> Stop</span>
                   </button>
                 </div>
               )}
@@ -487,7 +500,7 @@ const TalkToPdfModal = ({ isOpen, onClose, clusterId, documentIds }) => {
                     className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full shadow-lg transition-all duration-200 hover:scale-105"
                     disabled={!!error}
                   >
-                    🎤
+                    <Mic className="w-6 h-6" />
                   </button>
                 )}
 
@@ -496,7 +509,7 @@ const TalkToPdfModal = ({ isOpen, onClose, clusterId, documentIds }) => {
                     onClick={stopListening}
                     className="bg-red-500 hover:bg-red-600 text-white p-4 rounded-full shadow-lg animate-pulse"
                   >
-                    ⏹️
+                    <Square className="w-6 h-6" />
                   </button>
                 )}
 
@@ -515,21 +528,21 @@ const TalkToPdfModal = ({ isOpen, onClose, clusterId, documentIds }) => {
                       onClick={pauseSpeaking}
                       className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg"
                     >
-                      ⏸️ Pause
+                      <span className="inline-flex items-center gap-1"><Pause className="w-4 h-4" /> Pause</span>
                     </button>
                   ) : (
                     <button
                       onClick={resumeSpeaking}
                       className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg"
                     >
-                      ▶️ Resume
+                      <span className="inline-flex items-center gap-1"><Play className="w-4 h-4" /> Resume</span>
                     </button>
                   )}
                   <button
                     onClick={stopSpeaking}
                     className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg"
                   >
-                    ⏹️ Stop
+                    <span className="inline-flex items-center gap-1"><Square className="w-4 h-4" /> Stop</span>
                   </button>
                 </div>
               )}

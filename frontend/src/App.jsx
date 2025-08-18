@@ -7,14 +7,16 @@ import MindmapPanel from "./components/MindmapPanel";
 import ThemeToggle from "./components/ThemeToggle";
 import TalkToPdfModal from "./components/TalkToPdfModal";
 import MindmapModal from "./components/MindmapModal";
+import LoadingSpinner from "./components/LoadingSpinner";
+import ConfirmationModal from "./components/ConfirmationModal";
 import { useTheme } from "./context/ThemeContext";
 import toast, { Toaster } from "react-hot-toast";
-import logo from "./assets/adobe1.svg";
+import { FileText, Menu, X, Mic, RefreshCw, Brain, Trash2 } from "lucide-react";
 
 function App() {
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
-  const [files, setFiles] = useState([]);
+  const [stagedFiles, setStagedFiles] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedText, setSelectedText] = useState("");
   const [clusterId, setClusterId] = useState(null);
@@ -32,7 +34,6 @@ function App() {
   const [isLoadingSections, setIsLoadingSections] = useState(false);
   const [documentFiles, setDocumentFiles] = useState({}); // Store loaded PDF files by document ID
   const [documentSearchQuery, setDocumentSearchQuery] = useState(''); // Search query for 
-  
   
   // Snippets and semantic search state
   const [snippets, setSnippets] = useState([]);
@@ -68,6 +69,10 @@ function App() {
 
   // Mindmap state
   const [generatedMindmapData, setGeneratedMindmapData] = useState(null);
+
+  // Confirmation modal state
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState(null);
 
   // Fetch uploaded documents and supported languages on component mount
   useEffect(() => {
@@ -230,45 +235,51 @@ function App() {
   };
 
   // Handle document deletion
-  const handleDeleteDocument = async (document, event) => {
+  const handleDeleteDocument = (document, event) => {
     event.stopPropagation(); // Prevent document selection
-    
-    if (!confirm(`Are you sure you want to delete "${document.filename}"? This action cannot be undone.`)) {
-      return;
-    }
-    
+    setDocumentToDelete(document);
+    setIsConfirmModalOpen(true);
+  };
+
+  // Confirm and execute deletion
+  const confirmDelete = async () => {
+    if (!documentToDelete) return;
+
     try {
       toast.loading("Deleting document...");
-      await apiService.deleteDocument(document._id);
-      
+      await apiService.deleteDocument(documentToDelete._id);
+
       // Remove from selected documents if it was selected
-      const newSelection = selectedDocuments.filter(doc => doc._id !== document._id);
+      const newSelection = selectedDocuments.filter(doc => doc._id !== documentToDelete._id);
       setSelectedDocuments(newSelection);
-      
+
       // Remove from document files cache
       setDocumentFiles(prev => {
         const newFiles = { ...prev };
-        delete newFiles[document._id];
+        delete newFiles[documentToDelete._id];
         return newFiles;
       });
-      
+
       // Update active tab if the deleted document was active
-      if (activeDocumentTab === document._id) {
+      if (activeDocumentTab === documentToDelete._id) {
         setActiveDocumentTab(newSelection.length > 0 ? newSelection[0]._id : null);
         if (newSelection.length > 0) {
           loadDocumentContent(newSelection[0]);
         }
       }
-      
+
       // Refresh document library
       await fetchUploadedDocuments();
-      
+
       toast.dismiss();
-      toast.success(`"${document.filename}" deleted successfully`);
+      toast.success(`"${documentToDelete.filename}" deleted successfully`);
     } catch (error) {
       console.error("Failed to delete document:", error);
       toast.dismiss();
       toast.error(`Failed to delete document: ${error.message}`);
+    } finally {
+      setIsConfirmModalOpen(false);
+      setDocumentToDelete(null);
     }
   };
 
@@ -565,18 +576,13 @@ function App() {
 
   // Handle file upload
   const handleFileUpload = (event) => {
-    const uploadedFiles = Array.from(event.target.files);
-    setFiles((prev) => [...prev, ...uploadedFiles]);
-
-    // Auto-select first file if none selected
-    if (!selectedFile && uploadedFiles.length > 0) {
-      setSelectedFile(uploadedFiles[0]);
-    }
+    const newFiles = Array.from(event.target.files);
+    setStagedFiles((prevFiles) => [...prevFiles, ...newFiles]);
   };
 
   // Upload cluster to backend
   const handleUploadCluster = async () => {
-    if (files.length === 0) {
+    if (stagedFiles.length === 0) {
       toast.error("Please select files to upload");
       return;
     }
@@ -585,7 +591,7 @@ function App() {
     setUploadError(null);
 
     try {
-      const result = await apiService.uploadCluster(files);
+      const result = await apiService.uploadCluster(stagedFiles);
       console.log("Upload successful:", result);
 
       setClusterId(result.cluster_id);
@@ -594,7 +600,7 @@ function App() {
       );
 
       // ✅ Reset back to initial stage after successful upload
-      setFiles([]);
+      setStagedFiles([]);
       setSelectedFile(null);
       setSelectedText("");
       
@@ -610,20 +616,30 @@ function App() {
   };
 
 
-  // Remove file
-  const handleRemoveFile = (fileToRemove) => {
-    setFiles((prev) => prev.filter((file) => file !== fileToRemove));
-
-    if (selectedFile === fileToRemove) {
-      const remaining = files.filter((f) => f !== fileToRemove);
-      setSelectedFile(remaining.length > 0 ? remaining[0] : null);
-    }
+  // Remove file from staged files
+  const handleRemoveStagedFile = (fileToRemove) => {
+    setStagedFiles((prev) => prev.filter((file) => file !== fileToRemove));
   };
 
   const { isDarkMode } = useTheme();
   
   return (
     <div className={`flex flex-col h-screen bg-[var(--bg)] font-sans`}>
+
+      {isUploading && <LoadingSpinner message="Cooking your documents..." />}
+
+      <ConfirmationModal
+        isOpen={isConfirmModalOpen}
+        onClose={() => {
+          setIsConfirmModalOpen(false);
+          setDocumentToDelete(null);
+        }}
+        onConfirm={confirmDelete}
+        title="Confirm Deletion"
+      >
+        {documentToDelete && `Are you sure you want to delete "${documentToDelete.filename}"? This action cannot be undone.`}
+      </ConfirmationModal>
+
       {/* Notification */}
       <Toaster />
       {/* Top Bar */}
@@ -634,9 +650,9 @@ function App() {
             className="lg:hidden p-2 rounded-md hover:bg-[var(--hover-bg)]"
             onClick={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            <Menu className="w-6 h-6" />
           </button>
-                    <img src={logo} alt="Adobe Logo" className="w-8 h-8 sm:w-12 sm:h-10" />
+                    <img src="/adobe1.svg" alt="Adobe" className="w-8 h-8 sm:w-12 sm:h-10" />
                                                   <h1 className="text-base sm:text-xl font-bold flex items-center gap-2 text-[var(--text-primary)] truncate">
             AI Document Nexus -                         <span className="hidden sm:inline-flex bg-yellow-500 text-white px-3 py-1 rounded text-lg">
               Team Hackies
@@ -654,8 +670,8 @@ function App() {
             }`}
             title={uploadedDocuments.length === 0 ? "Upload documents first" : "Talk to your PDFs using voice"}
           >
-                                    <span className="hidden sm:inline">🎤 Talk to PDF</span>
-            <span className="sm:hidden">🎤</span>
+                                    <span className=" sm:inline flex hidden items-center gap-2"><Mic size={16} /> Talk to PDF</span>
+            <span className="sm:hidden"><Mic size={16} /></span>
           </button>
           {/* <button
             onClick={() => setIsMindmapOpen(true)}
@@ -676,7 +692,7 @@ function App() {
             className="lg:hidden p-2 rounded-md hover:bg-[var(--hover-bg)]"
             onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            <Menu className="w-6 h-6" />
           </button>
         </div>
       </div>
@@ -691,7 +707,7 @@ function App() {
               className="lg:hidden p-2 rounded-md hover:bg-[var(--hover-bg)]"
               onClick={() => setIsLeftSidebarOpen(false)}
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                <X className="w-6 h-6" />
             </button>
           </div>
           
@@ -709,19 +725,39 @@ function App() {
             </p>
           </div>
 
+          {/* Staged Files List */}
+          {stagedFiles.length > 0 && (
+            <div className="mb-4">
+              <h3 className="font-semibold text-[var(--text-primary)] mb-2">Selected Files:</h3>
+              <ul className="space-y-2 max-h-32 overflow-y-auto pr-2"> {/* Added scroll for long lists */}
+                {stagedFiles.map((file, index) => (
+                  <li key={index} className="flex items-center justify-between text-sm bg-[var(--card-bg)] p-2 rounded">
+                    <span className="text-[var(--text-secondary)] truncate w-48" title={file.name}>{file.name}</span>
+                    <button 
+                      onClick={() => handleRemoveStagedFile(file)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Upload Button */}
           <button
             onClick={handleUploadCluster}
-            disabled={isUploading || files.length === 0}
+            disabled={isUploading || stagedFiles.length === 0}
             className={`w-full p-3 rounded-lg mb-4 font-medium ${
-              isUploading || files.length === 0
+              isUploading || stagedFiles.length === 0
                 ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                 : "bg-red-600 text-white hover:bg-red-700"
             }`}
           >
             {isUploading
               ? "Uploading..."
-              : `Upload Cluster (${files.length} files)`}
+              : `Upload Cluster (${stagedFiles.length} files)`}
           </button>
 
           {uploadError && (
@@ -738,7 +774,11 @@ function App() {
               disabled={isLoadingDocuments}
               className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 disabled:bg-gray-300"
             >
-              {isLoadingDocuments ? "🔄" : "🔄"}
+              {isLoadingDocuments ? (
+                <RefreshCw className="w-4 h-4 animate-spin inline" />
+              ) : (
+                <RefreshCw className="w-4 h-4 inline" />
+              )}
             </button>
           </div>
           
@@ -804,14 +844,14 @@ function App() {
                         className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded p-1 transition-colors"
                         title={`Generate mindmap for ${document.filename}`}
                       >
-                        🧠
+                        <Brain className="w-4 h-4" />
                       </button>
                       <button
                         onClick={(e) => handleDeleteDocument(document, e)}
                         className="text-red-500 hover:text-red-700 hover:bg-red-100 rounded p-1 transition-colors"
                         title={`Delete ${document.filename}`}
                       >
-                        🗑️
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </li>
@@ -855,43 +895,16 @@ function App() {
                     onClick={(e) => handleTabClose(document, e)}
                     title="Close tab"
                   >
-                    ✕
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
               ))}
             </div>
           )}
           
-          {/* File Upload Tabs (for uploaded files) */}
-          {files.length > 0 && (
-            <div id="pdf-viewer" className="w-full h-full bg-gray-200 mx-auto">
-              {files.map((file, index) => (
-                <div
-                  key={index}
-                  className={`px-4 py-2 flex items-center gap-2 cursor-pointer border-r ${
-                    selectedFile === file
-                      ? "bg-white border-b-2 border-red-600 font-medium"
-                      : "hover:bg-gray-200"
-                  }`}
-                  onClick={() => setSelectedFile(file)}
-                >
-                  <span className="truncate max-w-[150px]">{file.name}</span>
-                  <button
-                    className="text-red-500 hover:text-red-700"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRemoveFile(file);
-                    }}
-                  >
-                    ❌
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
 
           {/* PDF Area */}
-                                        <div className="flex-1 overflow-auto flex justify-center items-center">
+          <div className="flex-1 overflow-auto   flex justify-center items-center">
             {selectedFile ? (
               <PdfViewer 
                 file={selectedFile} 
@@ -967,7 +980,7 @@ function App() {
               className="lg:hidden p-2 rounded-md hover:bg-[var(--hover-bg)]"
               onClick={() => setIsRightSidebarOpen(false)}
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                <X className="w-6 h-6" />
             </button>
           </div>
           

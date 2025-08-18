@@ -1,12 +1,17 @@
 import React from 'react';
+import { Search, Loader2, FileText } from 'lucide-react';
 
 const Snippets = ({ snippets, selectedText, onSnippetClick, isLoading }) => {
   if (isLoading) {
     return (
       <div className="bg-[var(--card-bg)] rounded p-4 shadow mb-4">
-        <h3 className="font-medium mb-2 text-[var(--text-primary)]">🔍 Finding Relevant Snippets...</h3>
+        <h3 className="font-medium mb-2 text-[var(--text-primary)] inline-flex items-center gap-2">
+          <Search className="w-4 h-4" /> Finding Relevant Snippets...
+        </h3>
         <div className="text-center py-4">
-          <div className="text-xl mb-2">🔄</div>
+          <div className="flex justify-center mb-2">
+            <Loader2 className="w-6 h-6 animate-spin text-[var(--text-secondary)]" />
+          </div>
           <p className="text-sm text-[var(--text-secondary)]">Searching across your documents</p>
         </div>
       </div>
@@ -25,7 +30,9 @@ const Snippets = ({ snippets, selectedText, onSnippetClick, isLoading }) => {
   return (
     <div className="bg-[var(--card-bg)] rounded p-4 shadow mb-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-medium text-[var(--text-primary)]">🔍 Relevant Snippets</h3>
+        <h3 className="font-medium text-[var(--text-primary)] inline-flex items-center gap-2">
+          <Search className="w-4 h-4" /> Relevant Snippets
+        </h3>
         <span className="text-xs bg-[var(--highlight-bg)] text-[var(--highlight)] px-2 py-1 rounded">
           {snippets.length} found
         </span>
@@ -52,8 +59,8 @@ const Snippets = ({ snippets, selectedText, onSnippetClick, isLoading }) => {
                 </h4>
                 <div className="text-xs text-[var(--text-secondary)] space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs">
-                      📄 {snippet.document_filename || 'Unknown Document'}
+                    <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs inline-flex items-center gap-1">
+                      <FileText className="w-3 h-3" /> {snippet.document_filename || 'Unknown Document'}
                     </span>
                     <span>Page {snippet.page_number}</span>
                   </div>
