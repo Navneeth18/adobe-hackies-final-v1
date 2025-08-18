@@ -51,6 +51,34 @@ body {
   @apply bg-[var(--bg)] text-[var(--text-primary)] transition-colors duration-200;
 }
 
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  body {
+    font-size: 14px;
+  }
+
+  .top-bar-container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .main-content {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .right-sidebar {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--border-color);
+  }
+}
+
 /* Card styling */
 .card {
   @apply bg-[var(--card-bg)] border border-[var(--border-color)] rounded-lg shadow-sm;
@@ -63,4 +91,14 @@ body {
 
 .btn-secondary {
   @apply bg-[var(--button-secondary)] text-white px-4 py-2 rounded hover:opacity-90 transition-colors;
+}
+
+/* Hide scrollbar but keep scrolling */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
 }

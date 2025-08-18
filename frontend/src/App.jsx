@@ -12,6 +12,8 @@ import toast, { Toaster } from "react-hot-toast";
 import logo from "./assets/adobe1.svg";
 
 function App() {
+  const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
+  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [files, setFiles] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedText, setSelectedText] = useState("");
@@ -621,29 +623,28 @@ function App() {
   const { isDarkMode } = useTheme();
   
   return (
-    <div className={`flex flex-col h-screen bg-[var(--bg)]`}>
+    <div className={`flex flex-col h-screen bg-[var(--bg)] font-sans`}>
       {/* Notification */}
       <Toaster />
       {/* Top Bar */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-[var(--border-color)] bg-[var(--bg)]">
+      <div className="flex items-center justify-between flex-nowrap px-2 sm:px-6 py-3 border-b border-[var(--border-color)] bg-[var(--bg)] relative gap-2">
 
-        <div className="flex justify-center items-center gap-10">
-          {/* logo */}
-          <img src={logo} alt="Adobe Logo" className="w-15 h-12" />
-          <h1 className="text-xl font-bold flex items-center gap-2 text-[var(--text-primary)]">
-            {/* <span className="bg-red-600 text-white p-2 rounded">📑</span> */}
-            AI Document Nexus - <span className="text-lg"> 
-            <button className="bg-yellow-500 text-white px-3 py-1 rounded">
-            Team Hackies
+        <div className="flex items-center gap-2">
+          <button 
+            className="lg:hidden p-2 rounded-md hover:bg-[var(--hover-bg)]"
+            onClick={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
           </button>
+                    <img src={logo} alt="Adobe Logo" className="w-8 h-8 sm:w-12 sm:h-10" />
+                                                  <h1 className="text-base sm:text-xl font-bold flex items-center gap-2 text-[var(--text-primary)] truncate">
+            AI Document Nexus -                         <span className="hidden sm:inline-flex bg-yellow-500 text-white px-3 py-1 rounded text-lg">
+              Team Hackies
             </span>
           </h1>
-          {/* <h>by Team Hackies 🤝</h3> */}
-
         </div>
-        
-        <div className="flex gap-4 items-center">
-          <button 
+                                                <div className="flex items-center justify-end gap-1 sm:gap-2">
+                    <button 
             onClick={() => setIsTalkToPdfOpen(true)}
             disabled={uploadedDocuments.length === 0}
             className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
@@ -653,7 +654,8 @@ function App() {
             }`}
             title={uploadedDocuments.length === 0 ? "Upload documents first" : "Talk to your PDFs using voice"}
           >
-            🎤 Talk to PDF
+                                    <span className="hidden sm:inline">🎤 Talk to PDF</span>
+            <span className="sm:hidden">🎤</span>
           </button>
           {/* <button
             onClick={() => setIsMindmapOpen(true)}
@@ -667,21 +669,32 @@ function App() {
           >
             🧠 Mindmap
           </button> */}
-          <button className="bg-yellow-500 text-white px-3 py-1 rounded">
-            Team Hackies
-          </button>
+          
 
           <ThemeToggle />
-          
+          <button 
+            className="lg:hidden p-2 rounded-md hover:bg-[var(--hover-bg)]"
+            onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+          </button>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
         {/* Left Sidebar */}
-        <div className="w-72 border-r border-[var(--border-color)] bg-[var(--sidebar-bg)] p-4 overflow-y-auto">
-          <h2 className="font-semibold mb-2 text-[var(--text-primary)]">Upload Documents</h2>
-
+                <div className={`fixed lg:relative top-0 left-0 h-full z-30 w-72 bg-[var(--sidebar-bg)] border-r border-[var(--border-color)] p-4 overflow-y-auto transition-transform transform ${isLeftSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 no-scrollbar`}>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="font-semibold text-[var(--text-primary)]">Upload Documents</h2>
+            <button 
+              className="lg:hidden p-2 rounded-md hover:bg-[var(--hover-bg)]"
+              onClick={() => setIsLeftSidebarOpen(false)}
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+          </div>
+          
           {/* File Input */}
           <div className="border-2 border-dashed border-[var(--border-color)] rounded-lg p-6 text-center mb-4 bg-[var(--card-bg)]">
             <input
@@ -820,7 +833,7 @@ function App() {
         </div>
 
         {/* Center PDF Viewer with Tabs */}
-        <div className="flex-1 flex flex-col bg-[var(--bg)] overflow-hidden">
+        <div className="flex-1 flex flex-col bg-[var(--bg)] overflow-hidden no-scrollbar">
           {/* Document Tabs */}
           {selectedDocuments.length > 0 && (
             <div className="flex border-b border-[var(--border-color)] bg-[var(--sidebar-bg)] overflow-x-auto">
@@ -851,7 +864,7 @@ function App() {
           
           {/* File Upload Tabs (for uploaded files) */}
           {files.length > 0 && (
-            <div className="flex border-b bg-gray-100">
+            <div id="pdf-viewer" className="w-full h-full bg-gray-200 mx-auto">
               {files.map((file, index) => (
                 <div
                   key={index}
@@ -878,7 +891,7 @@ function App() {
           )}
 
           {/* PDF Area */}
-          <div className="flex-1 overflow-auto">
+                                        <div className="flex-1 overflow-auto flex justify-center items-center">
             {selectedFile ? (
               <PdfViewer 
                 file={selectedFile} 
@@ -947,9 +960,17 @@ function App() {
         </div>
 
         {/* Right Sidebar */}
-        <div className="w-96 border-l border-[var(--border-color)] bg-[var(--sidebar-bg)] p-4 overflow-y-auto">
-          <h2 className="font-semibold mb-4 text-[var(--text-primary)]">Connecting the Dots</h2>
-
+                <div className={`fixed lg:relative top-0 right-0 h-full z-30 w-96 bg-[var(--sidebar-bg)] border-l border-[var(--border-color)] p-4 overflow-y-auto transition-transform transform ${isRightSidebarOpen ? 'translate-x-0' : 'translate-x-full'} lg:translate-x-0 no-scrollbar`}>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="font-semibold text-[var(--text-primary)]">Connecting the Dots</h2>
+            <button 
+              className="lg:hidden p-2 rounded-md hover:bg-[var(--hover-bg)]"
+              onClick={() => setIsRightSidebarOpen(false)}
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+          </div>
+          
           {/* Selected Documents Info */}
           {selectedDocuments.length > 0 && (
             <div className="bg-[var(--card-bg)] rounded p-4 shadow mb-4">
