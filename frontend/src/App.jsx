@@ -4,6 +4,7 @@ import PdfViewer from "./components/PdfViewer";
 import Snippets from "./components/Snippets";
 import InsightPanel from "./components/InsightPanel";
 import ThemeToggle from "./components/ThemeToggle";
+import TalkToPdfModal from "./components/TalkToPdfModal";
 import { useTheme } from "./context/ThemeContext";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -52,6 +53,9 @@ function App() {
   const [isGeneratingFullDocumentPodcast, setIsGeneratingFullDocumentPodcast] = useState(false);
   const [fullDocumentPodcastUrl, setFullDocumentPodcastUrl] = useState(null);
   const [fullDocumentPodcastId, setFullDocumentPodcastId] = useState(null);
+
+  // Talk to PDF modal state
+  const [isTalkToPdfOpen, setIsTalkToPdfOpen] = useState(false);
 
   // Fetch uploaded documents and supported languages on component mount
   useEffect(() => {
@@ -584,6 +588,19 @@ function App() {
           Document Insight Engine
         </h1>
         <div className="flex gap-4 items-center">
+          <button 
+            onClick={() => setIsTalkToPdfOpen(true)}
+            disabled={uploadedDocuments.length === 0}
+            className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+              uploadedDocuments.length === 0
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-purple-600 text-white hover:bg-purple-700 hover:scale-105 shadow-lg"
+            }`}
+            title={uploadedDocuments.length === 0 ? "Upload documents first" : "Talk to your PDFs using voice"}
+          >
+            🎤 Talk to PDF
+          </button>
+          
           <button className="bg-yellow-500 text-white px-3 py-1 rounded">
             Team Hackies
           </button>
@@ -1190,6 +1207,14 @@ function App() {
           </div>
         </div>
       </div>
+
+      {/* Talk to PDF Modal */}
+      <TalkToPdfModal
+        isOpen={isTalkToPdfOpen}
+        onClose={() => setIsTalkToPdfOpen(false)}
+        clusterId={clusterId}
+        documentIds={selectedDocuments.map(doc => doc._id)}
+      />
     </div>
   );
 }
