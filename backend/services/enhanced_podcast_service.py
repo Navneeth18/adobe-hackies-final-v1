@@ -84,8 +84,8 @@ EDGE_VOICES = {
     "zh": "zh-CN-XiaoxiaoNeural",
 }
 
-# Edge TTS text limit (safe chunk size)
-TTS_MAX_CHARS = 3500
+# Edge TTS text limit (safe chunk size) - much more conservative to avoid 5000 char limit
+TTS_MAX_CHARS = 3000
 
 class EnhancedPodcastService:
     def __init__(self):
@@ -297,20 +297,77 @@ class EnhancedPodcastService:
         buckets: List[str] = []
 
         for p in paragraphs:
-            if cur_len + len(p) + 1 > TTS_MAX_CHARS and current:
-                buckets.append("\n".join(current))
-                current, cur_len = [], 0
-            current.append(p)
-            cur_len += len(p) + 1
+            # If single paragraph is too long, split it further
+            if len(p) > TTS_MAX_CHARS:
+                # Split long paragraph by sentences
+                sentences = p.split('. ')
+                for i, sentence in enumerate(sentences):
+                    if i < len(sentences) - 1:
+                        sentence += '. '  # Add back the period and space
+                    
+                    if cur_len + len(sentence) > TTS_MAX_CHARS and current:
+                        buckets.append("\n".join(current))
+                        current, cur_len = [], 0
+                    
+                    current.append(sentence)
+                    cur_len += len(sentence)
+            else:
+                if cur_len + len(p) + 1 > TTS_MAX_CHARS and current:
+                    buckets.append("\n".join(current))
+                    current, cur_len = [], 0
+                current.append(p)
+                cur_len += len(p) + 1
+                
         if current:
             buckets.append("\n".join(current))
 
-        for idx, chunk in enumerate(buckets):
+        # Final safety check - split any chunks that are still too long
+        safe_buckets = []
+        for bucket in buckets:
+            if len(bucket) <= TTS_MAX_CHARS:
+                safe_buckets.append(bucket)
+            else:
+                # Force split by character count if still too long
+                words = bucket.split()
+                temp_chunk = []
+                temp_len = 0
+                
+                for word in words:
+                    if temp_len + len(word) + 1 > TTS_MAX_CHARS and temp_chunk:
+                        safe_buckets.append(" ".join(temp_chunk))
+                        temp_chunk = []
+                        temp_len = 0
+                    temp_chunk.append(word)
+                    temp_len += len(word) + 1
+                    
+                if temp_chunk:
+                    safe_buckets.append(" ".join(temp_chunk))
+
+        for idx, chunk in enumerate(safe_buckets):
+            # Double check chunk length before TTS - be very strict
+            if len(chunk) > 4000:
+                logger.warning(f"Chunk {idx} is {len(chunk)} chars, truncating to 3000")
+                chunk = chunk[:3000] + "..."
+            elif len(chunk) > TTS_MAX_CHARS:
+                logger.warning(f"Chunk {idx} is {len(chunk)} chars, truncating to {TTS_MAX_CHARS}")
+                chunk = chunk[:TTS_MAX_CHARS] + "..."
+                
             outfile = out_dir / f"part_{idx:03d}.mp3"
-            # Edge TTS
-            communicate = edge_tts.Communicate(chunk, voice=voice)
-            await communicate.save(str(outfile))
-            parts.append(outfile)
+            logger.info(f"Synthesizing chunk {idx}: {len(chunk)} characters")
+            
+            try:
+                # Edge TTS with final validation
+                if len(chunk) > 5000:
+                    logger.error(f"Chunk {idx} still too long ({len(chunk)} chars), skipping")
+                    continue
+                    
+                communicate = edge_tts.Communicate(chunk, voice=voice)
+                await communicate.save(str(outfile))
+                parts.append(outfile)
+            except Exception as e:
+                logger.error(f"Failed to synthesize chunk {idx}: {e}")
+                # Continue with other chunks instead of failing completely
+                continue
 
         return parts
 

@@ -586,13 +586,13 @@ function App() {
         </h1>
         <div className="flex gap-4 items-center">
           <button className="bg-yellow-500 text-white px-3 py-1 rounded">
-            Adobe India Hackathon
+            Team Hackies
           </button>
           {clusterId && (
             <span className="text-[var(--text-secondary)]">Cluster: {clusterId}</span>
           )}
           <ThemeToggle />
-          <button>⚙️</button>
+          
         </div>
       </div>
 
