@@ -283,9 +283,7 @@ function App() {
       setContradictions(searchResults.contradictions || []);
       setAlternateViewpoints(searchResults.alternate_viewpoints || []);
       
-      if (searchResults.snippets && searchResults.snippets.length > 0) {
-        generateLLMInsights(text);
-      }
+      // Don't auto-generate insights - only generate when insights tab is clicked
     } catch (error) {
       // Silently handle errors - text is still displayed in sidebar
       setSnippets([]);
@@ -959,7 +957,13 @@ function App() {
                     ? 'text-red-600 border-b-2 border-red-600 bg-red-50'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
-                onClick={() => setActiveTab('insights')}
+                onClick={() => {
+                  setActiveTab('insights');
+                  // Generate insights when tab is clicked if we have selected text and snippets
+                  if (selectedText && snippets.length > 0 && !llmInsights && !isGeneratingInsights) {
+                    generateLLMInsights(selectedText);
+                  }
+                }}
               >
                 💡 Insights
               </button>
