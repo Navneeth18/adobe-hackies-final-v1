@@ -25,6 +25,7 @@ function App() {
   const [documentSections, setDocumentSections] = useState([]);
   const [isLoadingSections, setIsLoadingSections] = useState(false);
   const [documentFiles, setDocumentFiles] = useState({}); // Store loaded PDF files by document ID
+  const [documentSearchQuery, setDocumentSearchQuery] = useState(''); // Search query for document library
   
   // Snippets and semantic search state
   const [snippets, setSnippets] = useState([]);
@@ -588,9 +589,7 @@ function App() {
           <button className="bg-yellow-500 text-white px-3 py-1 rounded">
             Adobe India Hackathon
           </button>
-          {clusterId && (
-            <span className="text-[var(--text-secondary)]">Cluster: {clusterId}</span>
-          )}
+
           <ThemeToggle />
           <button>⚙️</button>
         </div>
@@ -652,6 +651,8 @@ function App() {
           <input
             type="text"
             placeholder="Search documents..."
+            value={documentSearchQuery}
+            onChange={(e) => setDocumentSearchQuery(e.target.value)}
             className="w-full p-2 border border-[var(--border-color)] rounded mb-4 bg-[var(--card-bg)] text-[var(--text-primary)] placeholder-[var(--text-secondary)]"
           />
           
@@ -665,7 +666,13 @@ function App() {
             <p className="text-sm text-[var(--text-secondary)] mb-4">No documents uploaded</p>
           ) : (
             <ul className="space-y-2 mb-4">
-              {uploadedDocuments.map((document, index) => {
+              {uploadedDocuments
+                .filter(document => 
+                  documentSearchQuery.trim() === '' || 
+                  document.filename.toLowerCase().includes(documentSearchQuery.toLowerCase()) ||
+                  document.cluster_id.toLowerCase().includes(documentSearchQuery.toLowerCase())
+                )
+                .map((document, index) => {
                 const isSelected = selectedDocuments.some(doc => doc._id === document._id);
                 return (
                   <li
@@ -704,7 +711,7 @@ function App() {
           )}
 
           {/* Sidebar Buttons */}
-          <button className="w-full p-2 bg-white rounded border text-left mb-2">
+          {/* <button className="w-full p-2 bg-white rounded border text-left mb-2">
             ⚡ Generate Insights
           </button>
           <button className="w-full p-2 bg-white rounded border text-left mb-2">
@@ -712,7 +719,7 @@ function App() {
           </button>
           <button className="w-full p-2 bg-white rounded border text-left">
             🔍 Concept Explorer
-          </button>
+          </button> */}
         </div>
 
         {/* Center PDF Viewer with Tabs */}
@@ -899,7 +906,7 @@ function App() {
                     <div className="text-sm text-gray-600">🔍 Searching for related content...</div>
                   </div>
                 )}
-                <button
+                {/* <button
                   onClick={handleGeneratePodcast}
                   disabled={isGeneratingPodcast || snippets.length === 0}
                   className={`w-full py-2 px-3 rounded text-white flex items-center justify-center ${
@@ -910,7 +917,7 @@ function App() {
                   title={snippets.length === 0 ? 'Wait for semantic search to complete' : 'Generate audio overview'}
                 >
                   {isGeneratingPodcast ? '🔄 Generating...' : '🔊 Generate Audio Overview'}
-                </button>
+                </button> */}
                 {snippets.length === 0 && selectedText && !isSearchingSnippets && (
                   <p className="text-xs text-gray-500 mt-2 text-center">
                     💡 Audio generation will be available after semantic search finds related content
