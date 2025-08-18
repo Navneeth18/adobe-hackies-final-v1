@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from "react";
+import { useTheme } from "../context/ThemeContext";
 
 const PdfViewer = ({ file, onTextSelection, onGenerateAudio, targetPage, highlightText }) => {
+  const { isDarkMode } = useTheme();
   // Debug logging for navigation props
   useEffect(() => {
     if (targetPage || highlightText) {
@@ -149,6 +151,7 @@ const PdfViewer = ({ file, onTextSelection, onGenerateAudio, targetPage, highlig
             },
             {
               embedMode: "SIZED_CONTAINER",
+              uiTheme: isDarkMode ? "DARK" : "LIGHT",
               showDownloadPDF: true,
               showPrintPDF: true,
               enableFormFilling: false,
@@ -358,7 +361,7 @@ const PdfViewer = ({ file, onTextSelection, onGenerateAudio, targetPage, highlig
   return (
     <div className="relative w-full h-full">
       {isNavigating && (
-        <div className="absolute top-4 left-4 bg-blue-500 text-white px-3 py-2 rounded-lg shadow-lg z-50 flex items-center">
+        <div className="absolute top-4 left-4 bg-[var(--button-secondary)] text-white px-3 py-2 rounded-lg shadow-lg z-50 flex items-center">
           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
           Navigating to page {targetPage}...
         </div>
@@ -366,16 +369,16 @@ const PdfViewer = ({ file, onTextSelection, onGenerateAudio, targetPage, highlig
       <div id="adobe-dc-view" className="w-full h-full"></div>
 
       {selectionInfo && (
-        <div className="absolute top-4 right-4 bg-white border border-gray-200 rounded-lg p-3 shadow-lg z-50 max-w-xs">
-          <div className="text-xs text-gray-500 mb-1">Last Selection</div>
-          <div className="text-sm font-medium text-gray-800 mb-2">
+        <div className="absolute top-4 right-4 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-lg p-3 shadow-lg z-50 max-w-xs">
+          <div className="text-xs text-[var(--text-secondary)] mb-1">Last Selection</div>
+          <div className="text-sm font-medium text-[var(--text-primary)] mb-2">
             {selectionInfo.wordCount} words • {selectionInfo.length} chars
           </div>
-          <div className="text-xs text-gray-600 truncate">
+          <div className="text-xs text-[var(--text-secondary)] truncate">
             "{selectionInfo.text.substring(0, 50)}
             {selectionInfo.text.length > 50 ? "..." : ""}"
           </div>
-          <div className="text-xs text-gray-400 mt-1">
+          <div className="text-xs text-[var(--text-secondary)] opacity-70 mt-1">
             {selectionInfo.timestamp} • {selectionInfo.source || "manual"}
           </div>
         </div>

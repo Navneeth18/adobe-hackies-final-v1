@@ -26,25 +26,25 @@
 
 /* Dark theme */
 .dark-theme {
-  --bg: #1e1e2e;
-  --text-primary: #e2e8f0; /* slate-200 */
-  --text-secondary: #94a3b8; /* slate-400 */
-  --sidebar-bg: #181825;
-  --card-bg: #2a2a3c;
-  --border-color: #334155; /* slate-700 */
+  --bg: #111827; /* slate-900 */
+  --text-primary: #f9fafb; /* slate-50 */
+  --text-secondary: #9ca3af; /* slate-400 */
+  --sidebar-bg: #1f2937; /* slate-800 */
+  --card-bg: #374151; /* slate-700 */
+  --border-color: #4b5563; /* slate-600 */
   --highlight: #ef4444; /* red-500 */
   --button-primary: #ef4444; /* red-600 */
   --button-secondary: #3b82f6; /* blue-500 */
   --button-hover: #dc2626; /* red-700 */
-  --shadow: rgba(0, 0, 0, 0.3);
+  --shadow: rgba(0, 0, 0, 0.4);
   --highlight-hover: #f87171;
   --highlight-bg: #7f1d1d;
   --highlight-bg-light: #450a0a;
   --highlight-dark: #fca5a5;
-  --input-bg: #334155;
+  --input-bg: #4b5563; /* slate-600 */
   --button-secondary-bg: #475569;
   --button-secondary-hover: #64748b;
-  --hover-bg: #27272a;
+  --hover-bg: #374151; /* slate-700 */
 }
 
 body { 

@@ -9,6 +9,7 @@ import TalkToPdfModal from "./components/TalkToPdfModal";
 import MindmapModal from "./components/MindmapModal";
 import { useTheme } from "./context/ThemeContext";
 import toast, { Toaster } from "react-hot-toast";
+import logo from "./assets/adobe1.svg";
 
 function App() {
   const [files, setFiles] = useState([]);
@@ -28,7 +29,8 @@ function App() {
   const [documentSections, setDocumentSections] = useState([]);
   const [isLoadingSections, setIsLoadingSections] = useState(false);
   const [documentFiles, setDocumentFiles] = useState({}); // Store loaded PDF files by document ID
-  const [documentSearchQuery, setDocumentSearchQuery] = useState(''); // Search query for document library
+  const [documentSearchQuery, setDocumentSearchQuery] = useState(''); // Search query for 
+  
   
   // Snippets and semantic search state
   const [snippets, setSnippets] = useState([]);
@@ -624,10 +626,22 @@ function App() {
       <Toaster />
       {/* Top Bar */}
       <div className="flex items-center justify-between px-6 py-3 border-b border-[var(--border-color)] bg-[var(--bg)]">
-        <h1 className="text-xl font-bold flex items-center gap-2 text-[var(--text-primary)]">
-          <span className="bg-red-600 text-white p-2 rounded">📑</span>
-          Document Insight Engine
-        </h1>
+
+        <div className="flex justify-center items-center gap-10">
+          {/* logo */}
+          <img src={logo} alt="Adobe Logo" className="w-15 h-12" />
+          <h1 className="text-xl font-bold flex items-center gap-2 text-[var(--text-primary)]">
+            {/* <span className="bg-red-600 text-white p-2 rounded">📑</span> */}
+            AI Document Nexus - <span className="text-lg"> 
+            <button className="bg-yellow-500 text-white px-3 py-1 rounded">
+            Team Hackies
+          </button>
+            </span>
+          </h1>
+          {/* <h>by Team Hackies 🤝</h3> */}
+
+        </div>
+        
         <div className="flex gap-4 items-center">
           <button 
             onClick={() => setIsTalkToPdfOpen(true)}
@@ -752,17 +766,26 @@ function App() {
                     onClick={(e) => handleDocumentSelect(document, e.ctrlKey || e.metaKey)}
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm text-[var(--text-primary)] truncate">
+                      <div className="">
+                        <div className="text-sm text-[var(--text-primary)] truncate">
+                          {document.filename}
+                        </div>
+                        {/* <div className="text-xs text-[var(--text-secondary)]">
+                          {document.total_sections} sections
+                        </div> */}
+
+                      </div>
+                      {/* <div className="text-sm text-[var(--text-primary)] truncate">
                         {document.filename}
-                      </div>
-                      <div className="text-xs text-[var(--text-secondary)]">
+                      </div> */}
+                      {/* <div className="text-xs text-[var(--text-secondary)]">
                         Cluster: {document.cluster_id?.slice(0, 8)}...
-                      </div>
+                      </div> */}
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="text-xs text-[var(--text-secondary)]">
+                      {/* <div className="text-xs text-[var(--text-secondary)]">
                         {document.total_sections} sections
-                      </div>
+                      </div> */}
                       <button
                         onClick={(e) => handleGenerateMindmapFromLibrary(document, e)}
                         className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded p-1 transition-colors"
@@ -797,17 +820,17 @@ function App() {
         </div>
 
         {/* Center PDF Viewer with Tabs */}
-        <div className="flex-1 flex flex-col bg-white overflow-hidden">
+        <div className="flex-1 flex flex-col bg-[var(--bg)] overflow-hidden">
           {/* Document Tabs */}
           {selectedDocuments.length > 0 && (
-            <div className="flex border-b bg-gray-100 overflow-x-auto">
+            <div className="flex border-b border-[var(--border-color)] bg-[var(--sidebar-bg)] overflow-x-auto">
               {selectedDocuments.map((document) => (
                 <div
                   key={document._id}
                   className={`px-4 py-2 flex items-center gap-2 cursor-pointer border-r whitespace-nowrap ${
                     activeDocumentTab === document._id
-                      ? "bg-white border-b-2 border-red-600 font-medium"
-                      : "hover:bg-gray-200"
+                      ? "bg-[var(--bg)] border-b-2 border-red-600 font-medium text-[var(--text-primary)]"
+                      : "hover:bg-[var(--hover-bg)]"
                   }`}
                   onClick={() => handleTabSwitch(document)}
                 >
@@ -924,14 +947,14 @@ function App() {
         </div>
 
         {/* Right Sidebar */}
-        <div className="w-96 border-l border-gray-200 bg-gray-50 p-4 overflow-y-auto">
-          <h2 className="font-semibold mb-4">Connecting the Dots</h2>
+        <div className="w-96 border-l border-[var(--border-color)] bg-[var(--sidebar-bg)] p-4 overflow-y-auto">
+          <h2 className="font-semibold mb-4 text-[var(--text-primary)]">Connecting the Dots</h2>
 
           {/* Selected Documents Info */}
           {selectedDocuments.length > 0 && (
-            <div className="bg-white rounded p-4 shadow mb-4">
+            <div className="bg-[var(--card-bg)] rounded p-4 shadow mb-4">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="font-medium">📄 Selected Documents ({selectedDocuments.length})</h3>
+                <h3 className="font-medium text-[var(--text-primary)]">📄 Selected Documents ({selectedDocuments.length})</h3>
                 <button
                   onClick={() => {
                     setSelectedDocuments([]);
@@ -945,11 +968,13 @@ function App() {
                   Clear All
                 </button>
               </div>
-              <div className="text-sm text-gray-700 max-h-32 overflow-y-auto">
+              <div className="text-sm text-[var(--text-primary)]   max-h-32 overflow-y-auto">
                 {selectedDocuments.map((doc, index) => (
-                  <div key={doc._id} className={`mb-2 p-2 rounded ${activeDocumentTab === doc._id ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'}`}>
-                    <p><strong>{doc.filename}</strong></p>
-                    <p className="text-xs text-gray-500">Sections: {doc.total_sections} | ID: {doc._id.slice(0, 8)}...</p>
+                  <div key={doc._id} className={`mb-2 p-2 bg-[var(--card-bg)]   rounded ${activeDocumentTab === doc._id ? ' bg-opacity-800 border-yellow-500' : 'border-blue-300'}`}>
+                    <div className=" bg-[var(--card-bg)] p-2 border-2 border-[var(--border-color)] ">
+                        <p><strong>{doc.filename}</strong></p>
+                    </div>
+                    {/* <p className="text-xs text-[var(--text-secondary)]">Sections: {doc.total_sections} | ID: {doc._id.slice(0, 8)}...</p> */}
                   </div>
                 ))}
               </div>
@@ -968,16 +993,16 @@ function App() {
           )}
 
           {/* Selected Text */}
-          <div className="bg-white rounded p-4 shadow mb-4">
-            <h3 className="font-medium mb-2">⭐ Selected Text</h3>
+          <div className="bg-[var(--card-bg)] rounded p-4 shadow mb-4">
+            <h3 className="font-medium mb-2 text-[var(--text-primary)]">⭐ Selected Text</h3>
             {selectedText ? (
               <>
-                <blockquote className="border-l-4 border-red-500 pl-3 italic text-gray-700 mb-3">
+                <blockquote className="border-l-4 border-[var(--highlight)] pl-3 italic text-[var(--text-primary)] mb-3">
                   {selectedText}
                 </blockquote>
                 {isSearchingSnippets && (
                   <div className="text-center py-2 mb-3">
-                    <div className="text-sm text-gray-600">🔍 Searching for related content...</div>
+                    <div className="text-sm text-[var(--text-secondary)]">🔍 Searching for related content...</div>
                   </div>
                 )}
                 {/* <button
@@ -993,19 +1018,19 @@ function App() {
                   {isGeneratingPodcast ? '🔄 Generating...' : '🔊 Generate Audio Overview'}
                 </button> */}
                 {snippets.length === 0 && selectedText && !isSearchingSnippets && (
-                  <p className="text-xs text-gray-500 mt-2 text-center">
+                  <p className="text-xs text-[var(--text-secondary)] mt-2 text-center">
                     💡 Audio generation will be available after semantic search finds related content
                   </p>
                 )}
               </>
             ) : (
-              <p className="text-sm text-gray-500">Select text from the PDF to automatically search for related content</p>
+              <p className="text-sm text-[var(--text-secondary)]">Select text from the PDF to automatically search for related content</p>
             )}
           </div>
           
           {/* Podcast Player */}
           {podcastAudioUrl && (
-            <div className="bg-white rounded p-4 shadow mb-4">
+            <div className="bg-[var(--card-bg)] rounded p-4 shadow mb-4">
               <h3 className="font-medium mb-2">🎧 Audio Overview</h3>
               <audio controls className="w-full" src={podcastAudioUrl}></audio>
               <div className="text-xs text-gray-500 mt-2">
@@ -1015,13 +1040,13 @@ function App() {
           )}
 
           {/* Analysis Tabs */}
-          <div className="bg-white rounded shadow mb-4">
-            <div className="flex border-b border-gray-200">
+          <div className="bg-[var(--card-bg)] rounded shadow mb-4">
+            <div className="flex border-b border-[var(--border-color)]">
               <button
                 className={`flex-1 px-4 py-3 text-sm font-medium text-center ${
                   activeTab === 'snippets'
-                    ? 'text-red-600 border-b-2 border-red-600 bg-red-50'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                    ? 'text-[var(--highlight)] border-b-2 border-[var(--highlight)] bg-[var(--highlight-bg-light)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)]'
                 }`}
                 onClick={() => setActiveTab('snippets')}
               >
@@ -1030,8 +1055,8 @@ function App() {
               <button
                 className={`flex-1 px-4 py-3 text-sm font-medium text-center ${
                   activeTab === 'insights'
-                    ? 'text-red-600 border-b-2 border-red-600 bg-red-50'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                    ? 'text-[var(--highlight)] border-b-2 border-[var(--highlight)] bg-[var(--highlight-bg-light)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)]'
                 }`}
                 onClick={() => {
                   setActiveTab('insights');
@@ -1046,8 +1071,8 @@ function App() {
               <button
                 className={`flex-1 px-4 py-3 text-sm font-medium text-center ${
                   activeTab === 'podcast'
-                    ? 'text-red-600 border-b-2 border-red-600 bg-red-50'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                    ? 'text-[var(--highlight)] border-b-2 border-[var(--highlight)] bg-[var(--highlight-bg-light)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)]'
                 }`}
                 onClick={() => setActiveTab('podcast')}
               >
@@ -1071,7 +1096,7 @@ function App() {
                   {isGeneratingInsights && (
                     <div className="text-center py-4">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto mb-2"></div>
-                      <p className="text-sm text-gray-600">Generating AI insights...</p>
+                      <p className="text-sm text-[var(--text-secondary)]">Generating AI insights...</p>
                     </div>
                   )}
                   
@@ -1152,7 +1177,7 @@ function App() {
                   )}
                   
                   {!selectedText && !isGeneratingInsights && !llmInsights && (
-                    <div className="text-center py-8 text-gray-500">
+                    <div className="text-center py-8 text-[var(--text-secondary)]">
                       <div className="text-4xl mb-2">💡</div>
                       <p className="text-sm">Select text from a PDF to generate AI-powered insights</p>
                     </div>
@@ -1166,21 +1191,21 @@ function App() {
                   <div className="text-center">
                     <div className="text-4xl mb-3">🎙️</div>
                     <h3 className="font-medium mb-3">AI Podcast Generator</h3>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-[var(--text-secondary)]">
                       Generate AI-powered audio content from your PDFs in multiple languages and sizes.
                     </p>
                   </div>
 
                   {/* Language and Size Selection */}
-                  <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="bg-[var(--bg)] p-4 rounded-lg">
                     <h4 className="font-medium mb-3">🌍 Language & Size Settings</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Language</label>
+                        <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Language</label>
                         <select
                           value={selectedLanguage}
                           onChange={(e) => setSelectedLanguage(e.target.value)}
-                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full p-2 border border-[var(--border-color)] rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-[var(--card-bg)] text-[var(--text-primary)]"
                         >
                           {Object.entries(supportedLanguages).map(([code, name]) => (
                             <option key={code} value={code}>{name}</option>
@@ -1188,11 +1213,11 @@ function App() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Podcast Size</label>
+                        <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Podcast Size</label>
                         <select
                           value={selectedPodcastSize}
                           onChange={(e) => setSelectedPodcastSize(e.target.value)}
-                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full p-2 border border-[var(--border-color)] rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-[var(--card-bg)] text-[var(--text-primary)]"
                         >
                           <option value="small">Small (2-5 min)</option>
                           <option value="medium">Medium (5-10 min)</option>
@@ -1203,11 +1228,11 @@ function App() {
                   </div>
 
                   {/* Full Document Podcast */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <div className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-lg p-4">
                     <h4 className="font-medium mb-3 flex items-center">
                       <span className="mr-2">📄</span> Full Document Podcast
                     </h4>
-                    <p className="text-sm text-gray-600 mb-4">
+                    <p className="text-sm text-[var(--text-secondary)] mb-4">
                       Generate a comprehensive podcast from the entire document.
                     </p>
 
@@ -1231,7 +1256,7 @@ function App() {
                         )}
                       </button>
                     ) : (
-                      <div className="text-sm text-gray-500 bg-gray-50 p-4 rounded-lg text-center">
+                      <div className="text-sm text-[var(--text-secondary)] bg-[var(--bg)] p-4 rounded-lg text-center">
                         Select a document to generate a full document podcast
                       </div>
                     )}
