@@ -6,8 +6,11 @@ const TalkToPdfModal = ({ isOpen, onClose, clusterId, documentIds }) => {
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [conversation, setConversation] = useState([]);
   const [currentTranscript, setCurrentTranscript] = useState('');
+  const [textInput, setTextInput] = useState('');
+  const [inputMode, setInputMode] = useState('voice'); // 'voice' or 'text'
   const [error, setError] = useState(null);
 
   const recognitionRef = useRef(null);
@@ -95,16 +98,17 @@ const TalkToPdfModal = ({ isOpen, onClose, clusterId, documentIds }) => {
     setIsListening(false);
   };
 
-  const handleVoiceQuery = async (transcript) => {
-    if (!transcript.trim()) return;
+  const handleQuery = async (queryText) => {
+    if (!queryText.trim()) return;
 
     setCurrentTranscript('');
+    setTextInput('');
     setIsProcessing(true);
 
     // Add user message to conversation
     const userMessage = {
       type: 'user',
-      content: transcript,
+      content: queryText,
       timestamp: new Date().toLocaleTimeString()
     };
     setConversation(prev => [...prev, userMessage]);
@@ -117,7 +121,7 @@ const TalkToPdfModal = ({ isOpen, onClose, clusterId, documentIds }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          query: transcript,
+          query: queryText,
           cluster_id: clusterId,
           document_ids: documentIds
         }),
@@ -156,12 +160,78 @@ const TalkToPdfModal = ({ isOpen, onClose, clusterId, documentIds }) => {
     }
   };
 
-  const speakResponse = (text) => {
+  const handleVoiceQuery = async (transcript) => {
+    await handleQuery(transcript);
+  };
+
+  const handleTextSubmit = async (e) => {
+    e.preventDefault();
+    if (!textInput.trim()) return;
+    await handleQuery(textInput);
+  };
+
+  const speakResponse = async (text) => {
     if (!text) return;
 
-    // Cancel any ongoing speech
-    window.speechSynthesis.cancel();
+    setIsSpeaking(true);
 
+    try {
+      // Generate TTS audio using Azure TTS
+      const response = await fetch('http://localhost:8000/api/v1/tts/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: text,
+          voice: 'en-US-JennyNeural'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`TTS generation failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.audio_url) {
+        // Create audio element and play
+        const audio = new Audio(data.audio_url);
+        synthRef.current = audio;
+
+        audio.onended = () => {
+          setIsSpeaking(false);
+          setIsPaused(false);
+        };
+
+        audio.onerror = () => {
+          setIsSpeaking(false);
+          setIsPaused(false);
+          console.error('Audio playback error');
+        };
+
+        audio.onpause = () => {
+          setIsPaused(true);
+        };
+
+        audio.onplay = () => {
+          setIsPaused(false);
+        };
+
+        await audio.play();
+      } else {
+        throw new Error(data.error || 'Failed to generate TTS audio');
+      }
+
+    } catch (error) {
+      console.error('TTS error:', error);
+      setIsSpeaking(false);
+      // Fallback to browser TTS if Azure TTS fails
+      fallbackToWebSpeech(text);
+    }
+  };
+
+  const fallbackToWebSpeech = (text) => {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 0.9;
     utterance.pitch = 1;
@@ -183,13 +253,49 @@ const TalkToPdfModal = ({ isOpen, onClose, clusterId, documentIds }) => {
     synthRef.current = utterance;
   };
 
+  const pauseSpeaking = () => {
+    if (synthRef.current && synthRef.current instanceof Audio) {
+      synthRef.current.pause();
+      setIsPaused(true);
+    } else if (synthRef.current) {
+      window.speechSynthesis.pause();
+      setIsPaused(true);
+    }
+  };
+
+  const resumeSpeaking = () => {
+    if (synthRef.current && synthRef.current instanceof Audio) {
+      synthRef.current.play();
+      setIsPaused(false);
+    } else if (synthRef.current) {
+      window.speechSynthesis.resume();
+      setIsPaused(false);
+    }
+  };
+
   const stopSpeaking = () => {
-    window.speechSynthesis.cancel();
+    if (synthRef.current) {
+      if (synthRef.current instanceof Audio) {
+        synthRef.current.pause();
+        synthRef.current.currentTime = 0;
+      } else {
+        window.speechSynthesis.cancel();
+      }
+    }
     setIsSpeaking(false);
+    setIsPaused(false);
   };
 
   const clearConversation = () => {
     setConversation([]);
+    setError(null);
+    stopSpeaking();
+  };
+
+  const toggleInputMode = () => {
+    setInputMode(inputMode === 'voice' ? 'text' : 'voice');
+    setTextInput('');
+    setCurrentTranscript('');
     setError(null);
   };
 
@@ -201,9 +307,20 @@ const TalkToPdfModal = ({ isOpen, onClose, clusterId, documentIds }) => {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">
           <h2 className="text-xl font-bold flex items-center gap-2">
-            🎤 Talk to PDF
+            {inputMode === 'voice' ? '🎤' : '💬'} Talk to PDF
           </h2>
           <div className="flex items-center gap-2">
+            <button
+              onClick={toggleInputMode}
+              className={`px-3 py-1 text-sm rounded transition-colors ${
+                inputMode === 'voice' 
+                  ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
+                  : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+              }`}
+              title={`Switch to ${inputMode === 'voice' ? 'text' : 'voice'} mode`}
+            >
+              {inputMode === 'voice' ? '💬 Text' : '🎤 Voice'}
+            </button>
             <button
               onClick={clearConversation}
               className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded"
@@ -281,71 +398,156 @@ const TalkToPdfModal = ({ isOpen, onClose, clusterId, documentIds }) => {
           </div>
         )}
 
-        {/* Voice Controls */}
+        {/* Input Controls */}
         <div className="p-4 border-t bg-gray-50">
-          <div className="flex items-center justify-center gap-4">
-            {/* Voice Wave Animation */}
-            <div className="flex items-center gap-1">
-              {[...Array(5)].map((_, i) => (
-                <div
-                  key={i}
-                  className={`w-1 bg-blue-500 rounded-full transition-all duration-300 ${
-                    isListening || isSpeaking
-                      ? 'animate-pulse h-8'
-                      : 'h-2'
-                  }`}
-                  style={{
-                    animationDelay: `${i * 0.1}s`,
-                    height: isListening || isSpeaking 
-                      ? `${Math.random() * 20 + 10}px` 
-                      : '8px'
-                  }}
+          {inputMode === 'text' ? (
+            /* Text Input Mode */
+            <form onSubmit={handleTextSubmit} className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={textInput}
+                  onChange={(e) => setTextInput(e.target.value)}
+                  placeholder="Type your question about the documents..."
+                  className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={isProcessing}
                 />
-              ))}
-            </div>
-
-            {/* Main Control Button */}
-            {!isListening && !isProcessing && !isSpeaking && (
-              <button
-                onClick={startListening}
-                className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full shadow-lg transition-all duration-200 hover:scale-105"
-                disabled={!!error}
-              >
-                🎤
-              </button>
-            )}
-
-            {isListening && (
-              <button
-                onClick={stopListening}
-                className="bg-red-500 hover:bg-red-600 text-white p-4 rounded-full shadow-lg animate-pulse"
-              >
-                ⏹️
-              </button>
-            )}
-
-            {isSpeaking && (
-              <button
-                onClick={stopSpeaking}
-                className="bg-orange-500 hover:bg-orange-600 text-white p-4 rounded-full shadow-lg animate-pulse"
-              >
-                🔇
-              </button>
-            )}
-
-            {isProcessing && (
-              <div className="bg-gray-400 text-white p-4 rounded-full shadow-lg">
-                <div className="animate-spin w-6 h-6 border-2 border-white border-t-transparent rounded-full"></div>
+                <button
+                  type="submit"
+                  disabled={!textInput.trim() || isProcessing}
+                  className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                    !textInput.trim() || isProcessing
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-blue-500 text-white hover:bg-blue-600'
+                  }`}
+                >
+                  {isProcessing ? (
+                    <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div>
+                  ) : (
+                    '📤'
+                  )}
+                </button>
               </div>
-            )}
-          </div>
+              
+              {/* Audio Controls for Text Mode */}
+              {isSpeaking && (
+                <div className="flex items-center justify-center gap-2">
+                  {!isPaused ? (
+                    <button
+                      onClick={pauseSpeaking}
+                      className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg"
+                    >
+                      ⏸️ Pause
+                    </button>
+                  ) : (
+                    <button
+                      onClick={resumeSpeaking}
+                      className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg"
+                    >
+                      ▶️ Resume
+                    </button>
+                  )}
+                  <button
+                    onClick={stopSpeaking}
+                    className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg"
+                  >
+                    ⏹️ Stop
+                  </button>
+                </div>
+              )}
+            </form>
+          ) : (
+            /* Voice Input Mode */
+            <div className="space-y-3">
+              <div className="flex items-center justify-center gap-4">
+                {/* Voice Wave Animation */}
+                <div className="flex items-center gap-1">
+                  {[...Array(5)].map((_, i) => (
+                    <div
+                      key={i}
+                      className={`w-1 bg-blue-500 rounded-full transition-all duration-300 ${
+                        isListening || isSpeaking
+                          ? 'animate-pulse h-8'
+                          : 'h-2'
+                      }`}
+                      style={{
+                        animationDelay: `${i * 0.1}s`,
+                        height: isListening || isSpeaking 
+                          ? `${Math.random() * 20 + 10}px` 
+                          : '8px'
+                      }}
+                    />
+                  ))}
+                </div>
+
+                {/* Main Control Button */}
+                {!isListening && !isProcessing && !isSpeaking && (
+                  <button
+                    onClick={startListening}
+                    className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full shadow-lg transition-all duration-200 hover:scale-105"
+                    disabled={!!error}
+                  >
+                    🎤
+                  </button>
+                )}
+
+                {isListening && (
+                  <button
+                    onClick={stopListening}
+                    className="bg-red-500 hover:bg-red-600 text-white p-4 rounded-full shadow-lg animate-pulse"
+                  >
+                    ⏹️
+                  </button>
+                )}
+
+                {isProcessing && (
+                  <div className="bg-gray-400 text-white p-4 rounded-full shadow-lg">
+                    <div className="animate-spin w-6 h-6 border-2 border-white border-t-transparent rounded-full"></div>
+                  </div>
+                )}
+              </div>
+
+              {/* Audio Controls for Voice Mode */}
+              {isSpeaking && (
+                <div className="flex items-center justify-center gap-2">
+                  {!isPaused ? (
+                    <button
+                      onClick={pauseSpeaking}
+                      className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg"
+                    >
+                      ⏸️ Pause
+                    </button>
+                  ) : (
+                    <button
+                      onClick={resumeSpeaking}
+                      className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg"
+                    >
+                      ▶️ Resume
+                    </button>
+                  )}
+                  <button
+                    onClick={stopSpeaking}
+                    className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg"
+                  >
+                    ⏹️ Stop
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Status Text */}
           <div className="text-center mt-2 text-sm text-gray-600">
-            {isListening && 'Listening... Speak now!'}
-            {isProcessing && 'Processing your question...'}
-            {isSpeaking && 'Speaking response...'}
-            {!isListening && !isProcessing && !isSpeaking && 'Click microphone to ask a question'}
+            {inputMode === 'text' ? (
+              isProcessing ? 'Processing your question...' : 
+              isSpeaking ? (isPaused ? 'Audio paused' : 'Playing response...') :
+              'Type your question and press enter'
+            ) : (
+              isListening ? 'Listening... Speak now!' :
+              isProcessing ? 'Processing your question...' :
+              isSpeaking ? (isPaused ? 'Audio paused' : 'Playing response...') :
+              'Click microphone to ask a question'
+            )}
           </div>
         </div>
       </div>
