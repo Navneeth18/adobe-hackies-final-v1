@@ -10,6 +10,7 @@ const PdfViewer = memo(({ file, onTextSelection, targetPage, highlightText }) =>
   useEffect(() => {
     let selectionTimeout;
     let selectionCheckInterval;
+    let sdkReadyListener;
 
     const triggerSelection = (selectedText, source, rectOverride) => {
       if (!selectedText || selectedText.trim().length <= 3) return;
@@ -56,15 +57,19 @@ const PdfViewer = memo(({ file, onTextSelection, targetPage, highlightText }) =>
     };
     document.addEventListener("selectionchange", handleSelectionChange);
 
-    if (file && window.AdobeDC?.View) {
+    const initAdobeViewer = () => {
       try {
-        const viewerContainer = document.getElementById("adobe-dc-view");
-        if (viewerContainer) {
-          viewerContainer.innerHTML = '';
+        const apiKey = import.meta.env.ADOBE_EMBED_API_KEY || import.meta.env.VITE_ADOBE_CLIENT_ID;
+        if (!apiKey) {
+          console.error("Adobe Embed API key is missing. Set ADOBE_EMBED_API_KEY in .env");
+          return;
         }
+        const viewerContainer = document.getElementById("adobe-dc-view");
+        if (!viewerContainer) return;
+        viewerContainer.innerHTML = '';
 
         const adobeDCView = new window.AdobeDC.View({
-          clientId: import.meta.env.VITE_ADOBE_CLIENT_ID,
+          clientId: apiKey,
           divId: "adobe-dc-view",
         });
 
@@ -97,32 +102,22 @@ const PdfViewer = memo(({ file, onTextSelection, targetPage, highlightText }) =>
                 const attemptNavigation = (attempt = 1) => {
                   const delay = attempt * 1500;
                   setTimeout(() => {
-                    console.log(`Navigation attempt ${attempt} to page ${targetPage}`);
                     setIsNavigating(true);
                     apis.gotoLocation(targetPage)
                       .then(() => {
-                        console.log(`Successfully navigated to page ${targetPage}`);
                         setIsNavigating(false);
                         if (highlightText && highlightText.trim()) {
                           setTimeout(() => {
-                            apis.search(highlightText.trim()).then((searchResult) => {
-                              if (searchResult && searchResult.length > 0) {
-                                console.log(`Found and highlighted text: "${highlightText}"`);
-                              } else {
-                                console.warn(`No search results found for: "${highlightText}"`);
-                              }
-                            }).catch((error) => {
-                              console.warn(`Failed to search/highlight text "${highlightText}":`, error);
-                            });
+                            apis
+                              .search(highlightText.trim())
+                              .catch(() => {})
                           }, 1000);
                         }
                       })
-                      .catch((error) => {
-                        console.warn(`Navigation attempt ${attempt} failed for page ${targetPage}:`, error);
+                      .catch(() => {
                         if (attempt < 3) {
                           attemptNavigation(attempt + 1);
                         } else {
-                          console.error(`All navigation attempts failed for page ${targetPage}`);
                           setIsNavigating(false);
                         }
                       });
@@ -146,10 +141,22 @@ const PdfViewer = memo(({ file, onTextSelection, targetPage, highlightText }) =>
       } catch (error) {
         console.warn("Adobe viewer init failed:", error);
       }
+    };
+
+    if (file) {
+      if (window.AdobeDC?.View) {
+        initAdobeViewer();
+      } else {
+        sdkReadyListener = () => initAdobeViewer();
+        window.addEventListener("adobe_dc_view_sdk.ready", sdkReadyListener);
+      }
     }
 
     return () => {
       document.removeEventListener("selectionchange", handleSelectionChange);
+      if (sdkReadyListener) {
+        window.removeEventListener("adobe_dc_view_sdk.ready", sdkReadyListener);
+      }
       clearTimeout(selectionTimeout);
       clearInterval(selectionCheckInterval);
       document.querySelectorAll(".selection-notification").forEach((n) => n.remove());
