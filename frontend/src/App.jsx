@@ -409,7 +409,8 @@ function App() {
         setPodcastAudioId(result.audio_id);
         
         // Set the audio URL to the serving endpoint
-        setPodcastAudioUrl(`http://localhost:8000/api/v1/audio/serve/${result.audio_id}`);
+        const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+        setPodcastAudioUrl(`${apiBaseUrl}/audio/serve/${result.audio_id}`);
         toast.dismiss();
         toast.success("Podcast generated successfully with enhanced insights!");
       } else {
@@ -1146,15 +1147,6 @@ function App() {
             
             {/* Tab Content */}
             <div className="p-4">
-              {/* Feature API status (cached via React Query) */}
-              {/* {isFeatureLoading && (
-                <div className="mb-3 text-xs text-[var(--text-secondary)]">Loading personalization features…</div>
-              )} */}
-              {/* {featureError && (
-                <div className="mb-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2">
-                  Failed to load personalization features.
-                </div>
-              )} */}
               {activeTab === 'snippets' && (
                 <Snippets 
                   snippets={snippets}

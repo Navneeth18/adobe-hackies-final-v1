@@ -1,4 +1,0 @@
-# Simple test Dockerfile that doesn't require pulling from Docker Hub
-FROM scratch
-COPY test-html/index.html /index.html
-CMD ["cat", "/index.html"]

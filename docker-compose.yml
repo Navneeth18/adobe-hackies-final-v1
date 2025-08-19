@@ -1,9 +1,7 @@
-version: '3.8'
-
 services:
-  app:
+  backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
@@ -15,6 +13,25 @@ services:
       - mongo
     networks:
       - app-network
+    volumes:
+      - ./backend:/app
+      - /app/venv
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - VITE_API_URL=http://localhost:8000/api/v1
+    depends_on:
+      - backend
+    networks:
+      - app-network
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
 
   mongo:
     image: mongo:7

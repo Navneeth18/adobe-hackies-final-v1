@@ -8,6 +8,7 @@ export default defineConfig({
   envPrefix: ['VITE_', 'ADOBE_'],
 
   server: {
+    host: '0.0.0.0',
     port: 8080,
     headers: {
       "Content-Security-Policy": "script-src 'self' 'unsafe-inline' https://*.adobe.com https://*.adobe.io"

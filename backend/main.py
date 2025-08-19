@@ -1,11 +1,7 @@
 # backend/main.py
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
-import os
-from pathlib import Path
 from db.database import mongo_db
 from api.v1.router import api_router
 from services.recommendation_engine import recommendation_service
@@ -31,8 +27,9 @@ app = FastAPI(
 )
 
 origins = [
-    "http://localhost:5173",   # your React/Vite frontend
-    "http://localhost:8080",   # alternative port for frontend
+    "http://localhost:5173",   # your React/Vite frontend (dev)
+    "http://localhost:8080",   # frontend container port
+    "http://frontend:8080",    # frontend service name in Docker
     # you can add more domains here, e.g. "https://yourdomain.com"
 ]
 
@@ -46,25 +43,9 @@ app.add_middleware(
 
 app.include_router(api_router, prefix="/api")
 
-# Static files configuration for serving React frontend
-static_dir = Path(__file__).parent.parent / "frontend" / "dist"
+# Static files configuration removed - frontend runs as separate service
+# The frontend will be served from a separate container on port 8080
 
-# Only mount static files if the dist directory exists (production)
-if static_dir.exists():
-    app.mount("/static", StaticFiles(directory=static_dir / "assets"), name="static")
-    app.mount("/", StaticFiles(directory=static_dir, html=True), name="frontend")
-
-    # Catch-all route for React Router (SPA)
-    @app.get("/{full_path:path}")
-    async def serve_react_app(request: Request, full_path: str):
-        # Don't intercept API routes
-        if full_path.startswith("api/"):
-            return {"error": "API route not found"}
-
-        # Serve index.html for all non-API routes (React Router)
-        return FileResponse(static_dir / "index.html")
-else:
-    # Development fallback when frontend dist doesn't exist
-    @app.get("/")
-    def read_root():
-        return {"status": "API is running - Frontend not built yet"}
+@app.get("/")
+def read_root():
+    return {"status": "Backend API is running", "docs": "/docs"}
