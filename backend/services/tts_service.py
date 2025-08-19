@@ -10,13 +10,13 @@ class TTSService:
     def configure(self):
         if settings.TTS_PROVIDER == "azure":
             try:
-                if not settings.AZURE_TTS_KEY or not settings.AZURE_TTS_REGION:
-                    print(f"[ERROR] Missing Azure TTS credentials: KEY={bool(settings.AZURE_TTS_KEY)}, REGION={bool(settings.AZURE_TTS_REGION)}")
+                if not settings.AZURE_TTS_KEY or not settings.AZURE_TTS_ENDPOINT:
+                    print(f"[ERROR] Missing Azure TTS credentials: KEY={bool(settings.AZURE_TTS_KEY)}, ENDPOINT={bool(settings.AZURE_TTS_ENDPOINT)}")
                     return
                 
-                self.speech_config = speechsdk.SpeechConfig(subscription=settings.AZURE_TTS_KEY, region=settings.AZURE_TTS_REGION)
+                self.speech_config = speechsdk.SpeechConfig(subscription=settings.AZURE_TTS_KEY, endpoint=settings.AZURE_TTS_ENDPOINT)
                 self.speech_config.speech_synthesis_voice_name = "en-US-JennyNeural"
-                print(f"[SUCCESS] Azure TTS Service configured with region: {settings.AZURE_TTS_REGION}")
+                print(f"[SUCCESS] Azure TTS Service configured with endpoint: {settings.AZURE_TTS_ENDPOINT}")
             except Exception as e:
                 print(f"[ERROR] Failed to configure Azure TTS: {e}")
                 import traceback
