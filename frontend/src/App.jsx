@@ -11,10 +11,13 @@ import LoadingSpinner from "./components/LoadingSpinner";
 import ConfirmationModal from "./components/ConfirmationModal";
 import SelectedTextPodcast from "./components/SelectedTextPodcast";
 import DragDropUpload from "./components/DragDropUpload";
+import TagManagementModal from "./components/TagManagementModal";
+import TagFilter from "./components/TagFilter";
+import DocumentBookmarks from "./components/DocumentBookmarks";
 import { useTheme } from "./context/ThemeContext";
 import toast, { Toaster } from "react-hot-toast";
 import logo from "./assets/adobe1.svg";
-import { FileText, Menu, X, Mic, RefreshCw, Brain, Trash2 } from "lucide-react";
+import { FileText, Menu, X, Mic, RefreshCw, Brain, Trash2, Tag } from "lucide-react";
 import { useFeatureData } from "./hooks/useFeatureData";
 
 function App() {
@@ -78,6 +81,16 @@ function App() {
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState(null);
 
+  // Tag management state
+  const [isTagModalOpen, setIsTagModalOpen] = useState(false);
+  const [documentToTag, setDocumentToTag] = useState(null);
+
+  // Tag filtering state
+  const [selectedFilterTags, setSelectedFilterTags] = useState([]);
+  const [filteredDocuments, setFilteredDocuments] = useState([]);
+
+
+
   // Fetch Adobe Feature API once and cache via React Query
   const {
     data: featureData,
@@ -107,10 +120,13 @@ function App() {
   const fetchUploadedDocuments = async () => {
     setIsLoadingDocuments(true);
     setDocumentError(null);
-    
+
     try {
       const response = await apiService.getDocuments();
-      setUploadedDocuments(response.documents || []);
+      const documents = response.documents || [];
+      setUploadedDocuments(documents);
+
+
     } catch (error) {
       console.error("Failed to fetch documents:", error);
       setDocumentError(error.message);
@@ -657,6 +673,62 @@ function App() {
     setStagedFiles((prev) => prev.filter((file) => file !== fileToRemove));
   };
 
+  // Handle tag management
+  const handleOpenTagModal = (document, e) => {
+    e.stopPropagation(); // Prevent document selection
+    setDocumentToTag(document);
+    setIsTagModalOpen(true);
+  };
+
+  const handleTagsUpdated = (updatedDocument) => {
+    // Update the document in the uploaded documents list
+    setUploadedDocuments(prev =>
+      prev.map(doc =>
+        doc._id === updatedDocument._id ? updatedDocument : doc
+      )
+    );
+
+    // Update selected documents if the updated document is selected
+    setSelectedDocuments(prev =>
+      prev.map(doc =>
+        doc._id === updatedDocument._id ? updatedDocument : doc
+      )
+    );
+
+    // Update filtered documents if the updated document is in the filtered list
+    setFilteredDocuments(prev =>
+      prev.map(doc =>
+        doc._id === updatedDocument._id ? updatedDocument : doc
+      )
+    );
+  };
+
+  // Handle tag filter changes
+  const handleFilterTagsChange = (tags) => {
+    setSelectedFilterTags(tags);
+  };
+
+  const handleFilteredDocumentsChange = (documents) => {
+    setFilteredDocuments(documents);
+  };
+
+  // Handle bookmark navigation
+  const handleBookmarkNavigation = (page) => {
+    // Update the active document with the target page
+    if (activeDocumentTab) {
+      setSelectedDocuments(prev =>
+        prev.map(doc =>
+          doc._id === activeDocumentTab
+            ? { ...doc, targetPage: page, highlightText: null }
+            : doc
+        )
+      );
+      toast.success(`Navigating to page ${page}`);
+    }
+  };
+
+
+
   const { isDarkMode } = useTheme();
   
   return (
@@ -675,6 +747,16 @@ function App() {
       >
         {documentToDelete && `Are you sure you want to delete "${documentToDelete.filename}"? This action cannot be undone.`}
       </ConfirmationModal>
+
+      <TagManagementModal
+        isOpen={isTagModalOpen}
+        onClose={() => {
+          setIsTagModalOpen(false);
+          setDocumentToTag(null);
+        }}
+        document={documentToTag}
+        onTagsUpdated={handleTagsUpdated}
+      />
 
       {/* Notification */}
       <Toaster />
@@ -820,7 +902,17 @@ function App() {
             onChange={(e) => setDocumentSearchQuery(e.target.value)}
             className="w-full p-2 border border-[var(--border-color)] rounded mb-4 bg-[var(--card-bg)] text-[var(--text-primary)] placeholder-[var(--text-secondary)]"
           />
-          
+
+          {/* Tag Filter Component */}
+          {uploadedDocuments.length > 0 && (
+            <TagFilter
+              clusterId={uploadedDocuments[0]?.cluster_id}
+              selectedTags={selectedFilterTags}
+              onTagsChange={handleFilterTagsChange}
+              onFilteredDocuments={handleFilteredDocumentsChange}
+            />
+          )}
+
           {isLoadingDocuments ? (
             <p className="text-sm text-[var(--text-secondary)] mb-4">Loading documents...</p>
           ) : documentError ? (
@@ -831,9 +923,9 @@ function App() {
             <p className="text-sm text-[var(--text-secondary)] mb-4">No documents uploaded</p>
           ) : (
             <ul className="space-y-2 mb-4">
-              {uploadedDocuments
-                .filter(document => 
-                  documentSearchQuery.trim() === '' || 
+              {(selectedFilterTags.length > 0 ? filteredDocuments : uploadedDocuments)
+                .filter(document =>
+                  documentSearchQuery.trim() === '' ||
                   document.filename.toLowerCase().includes(documentSearchQuery.toLowerCase()) ||
                   document.cluster_id.toLowerCase().includes(documentSearchQuery.toLowerCase())
                 )
@@ -854,22 +946,35 @@ function App() {
                         <div className="text-sm text-[var(--text-primary)] truncate">
                           {document.filename}
                         </div>
-                        {/* <div className="text-xs text-[var(--text-secondary)]">
-                          {document.total_sections} sections
-                        </div> */}
-
+                        {/* Display tags if they exist */}
+                        {document.tags && document.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {document.tags.slice(0, 3).map((tag, tagIndex) => (
+                              <span
+                                key={tagIndex}
+                                className="inline-block bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                            {document.tags.length > 3 && (
+                              <span className="text-xs text-[var(--text-secondary)]">
+                                +{document.tags.length - 3} more
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      {/* <div className="text-sm text-[var(--text-primary)] truncate">
-                        {document.filename}
-                      </div> */}
-                      {/* <div className="text-xs text-[var(--text-secondary)]">
-                        Cluster: {document.cluster_id?.slice(0, 8)}...
-                      </div> */}
                     </div>
                     <div className="flex items-center gap-2">
-                      {/* <div className="text-xs text-[var(--text-secondary)]">
-                        {document.total_sections} sections
-                      </div> */}
+                      <button
+                        onClick={(e) => handleOpenTagModal(document, e)}
+                        className="text-green-600 hover:text-green-800 hover:bg-green-100 rounded p-1 transition-colors"
+                        title={`Manage tags for ${document.filename}`}
+                      >
+                        <Tag className="w-4 h-4" />
+                      </button>
+
                       <button
                         onClick={(e) => handleGenerateMindmapFromLibrary(document, e)}
                         className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded p-1 transition-colors"
@@ -937,8 +1042,8 @@ function App() {
           {/* PDF Area */}
           <div className="flex-1 overflow-auto   flex justify-center items-center">
             {selectedFile ? (
-              <PdfViewer 
-                file={selectedFile} 
+              <PdfViewer
+                file={selectedFile}
                 onTextSelection={handleTextSelection}
                 targetPage={(() => {
                   const activeDoc = selectedDocuments.find(doc => doc._id === activeDocumentTab);
@@ -948,6 +1053,7 @@ function App() {
                   const activeDoc = selectedDocuments.find(doc => doc._id === activeDocumentTab);
                   return activeDoc?.highlightText || null;
                 })()}
+                documentId={activeDocumentTab}
               />
             ) : selectedDocuments.length > 0 && activeDocumentTab ? (
               <div className="p-6">
@@ -1142,6 +1248,16 @@ function App() {
                 onClick={() => setActiveTab('podcast')}
               >
                 🎙️ Audio
+              </button>
+              <button
+                className={`flex-1 px-4 py-3 text-sm font-medium text-center ${
+                  activeTab === 'bookmarks'
+                    ? 'text-[var(--highlight)] border-b-2 border-[var(--highlight)] bg-[var(--highlight-bg-light)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)]'
+                }`}
+                onClick={() => setActiveTab('bookmarks')}
+              >
+                📑 Contents
               </button>
             </div>
             
@@ -1370,6 +1486,13 @@ function App() {
                     </ul>
                   </div>
                 </div>
+              )}
+
+              {activeTab === 'bookmarks' && (
+                <DocumentBookmarks
+                  document={selectedDocuments.find(doc => doc._id === activeDocumentTab)}
+                  onPageNavigation={handleBookmarkNavigation}
+                />
               )}
 
             </div>

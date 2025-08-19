@@ -1,7 +1,8 @@
 # backend/api/v1/endpoints/documents.py
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Query
 from fastapi.responses import FileResponse
-from typing import List
+from typing import List, Optional
+from pydantic import BaseModel
 import shutil, os, uuid
 from bson import ObjectId
 from services.pdf_processor import pdf_processor_service
@@ -9,6 +10,10 @@ from services.recommendation_engine import recommendation_service
 from db.database import mongo_db
 
 router = APIRouter()
+
+# Pydantic models for tag management
+class TagsUpdateRequest(BaseModel):
+    tags: List[str]
 
 def convert_objectid_to_str(obj):
     """Convert ObjectId to string in MongoDB documents"""
@@ -32,10 +37,20 @@ async def get_documents():
         raise HTTPException(status_code=500, detail=f"Failed to retrieve documents: {str(e)}")
 
 @router.get("/documents/{cluster_id}")
-async def get_documents_by_cluster(cluster_id: str):
-    """Retrieve documents by cluster ID"""
+async def get_documents_by_cluster(cluster_id: str, tags: Optional[str] = Query(None, description="Comma-separated list of tags to filter by")):
+    """Retrieve documents by cluster ID, optionally filtered by tags"""
     try:
-        documents = await mongo_db.db["documents"].find({"cluster_id": cluster_id}).to_list(length=None)
+        # Build the query filter
+        query_filter = {"cluster_id": cluster_id}
+
+        # Add tag filtering if tags parameter is provided
+        if tags:
+            tag_list = [tag.strip() for tag in tags.split(",") if tag.strip()]
+            if tag_list:
+                # Find documents that contain ALL specified tags
+                query_filter["tags"] = {"$all": tag_list}
+
+        documents = await mongo_db.db["documents"].find(query_filter).to_list(length=None)
         # Convert ObjectIds to strings
         documents = convert_objectid_to_str(documents)
         return {"documents": documents}
@@ -220,19 +235,29 @@ async def upload_document_cluster(files: List[UploadFile] = File(...)):
             with open(path, "wb") as buffer: shutil.copyfileobj(file.file, buffer)
             file.file.close()
 
-        sections_by_path = pdf_processor_service.extract_parallel(saved_paths)
+        extraction_results = pdf_processor_service.extract_parallel(saved_paths)
         all_sections, texts_to_embed, doc_records = [], [], []
 
-        for path, sections in sections_by_path.items():
+        for path, result in extraction_results.items():
+            sections = result.get("sections", [])
+            bookmarks = result.get("bookmarks", [])
+
             if not sections: continue
             doc_id = str(uuid.uuid4())
             filename = os.path.basename(path)
-            doc_records.append({"_id": doc_id, "filename": filename, "cluster_id": cluster_id, "total_sections": len(sections)})
-            
+            doc_records.append({
+                "_id": doc_id,
+                "filename": filename,
+                "cluster_id": cluster_id,
+                "total_sections": len(sections),
+                "tags": [],  # Initialize with empty tags array
+                "bookmarks": bookmarks  # Store extracted bookmarks
+            })
+
             # Save the PDF file permanently
             pdf_storage_path = os.path.join("pdf_storage", f"{doc_id}.pdf")
             shutil.copy(path, pdf_storage_path)
-            
+
             for s in sections:
                 s["document_id"] = doc_id
                 all_sections.append(s)
@@ -286,3 +311,89 @@ async def delete_document(document_id: str):
         if isinstance(e, HTTPException):
             raise e
         raise HTTPException(status_code=500, detail=f"Failed to delete document: {str(e)}")
+
+@router.post("/documents/{document_id}/tags")
+async def update_document_tags(document_id: str, request: TagsUpdateRequest):
+    """Update tags for a specific document"""
+    try:
+        # Validate tags (remove empty strings and duplicates)
+        tags = list(set([tag.strip() for tag in request.tags if tag.strip()]))
+
+        # Try to find document by string ID first
+        document = await mongo_db.db["documents"].find_one({"_id": document_id})
+
+        # If not found, try to convert to ObjectId (if it's a valid ObjectId)
+        if not document and ObjectId.is_valid(document_id):
+            document = await mongo_db.db["documents"].find_one({"_id": ObjectId(document_id)})
+
+        if not document:
+            raise HTTPException(status_code=404, detail=f"Document with ID {document_id} not found")
+
+        doc_id = document["_id"]
+
+        # Update the document with new tags
+        update_result = await mongo_db.db["documents"].update_one(
+            {"_id": doc_id},
+            {"$set": {"tags": tags}}
+        )
+
+        if update_result.modified_count == 0:
+            # Check if document exists but tags are the same
+            updated_doc = await mongo_db.db["documents"].find_one({"_id": doc_id})
+            if updated_doc and updated_doc.get("tags") == tags:
+                return {"message": "Tags updated successfully", "tags": tags}
+            raise HTTPException(status_code=404, detail="Document not found or no changes made")
+
+        return {"message": "Tags updated successfully", "tags": tags}
+
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=f"Failed to update tags: {str(e)}")
+
+@router.get("/tags/{cluster_id}")
+async def get_cluster_tags(cluster_id: str):
+    """Get all unique tags for documents in a specific cluster"""
+    try:
+        # Find all documents in the cluster
+        documents = await mongo_db.db["documents"].find({"cluster_id": cluster_id}).to_list(length=None)
+
+        if not documents:
+            return {"tags": []}
+
+        # Collect all unique tags from all documents in the cluster
+        all_tags = set()
+        for document in documents:
+            tags = document.get("tags", [])
+            if isinstance(tags, list):
+                all_tags.update(tags)
+
+        # Return sorted list of unique tags
+        return {"tags": sorted(list(all_tags))}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve cluster tags: {str(e)}")
+
+@router.get("/documents/{document_id}/bookmarks")
+async def get_document_bookmarks(document_id: str):
+    """Get bookmarks/table of contents for a specific document"""
+    try:
+        # Try to find document by string ID first
+        document = await mongo_db.db["documents"].find_one({"_id": document_id})
+
+        # If not found, try to convert to ObjectId (if it's a valid ObjectId)
+        if not document and ObjectId.is_valid(document_id):
+            document = await mongo_db.db["documents"].find_one({"_id": ObjectId(document_id)})
+
+        if not document:
+            raise HTTPException(status_code=404, detail=f"Document with ID {document_id} not found")
+
+        # Get bookmarks from the document
+        bookmarks = document.get("bookmarks", [])
+
+        return {"bookmarks": bookmarks}
+
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve bookmarks: {str(e)}")

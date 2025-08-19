@@ -1,11 +1,38 @@
 import { useEffect, useState, useRef, memo } from "react";
 import { useTheme } from "../context/ThemeContext";
+import toast from "react-hot-toast";
 
-const PdfViewer = memo(({ file, onTextSelection, targetPage, highlightText }) => {
+const PdfViewer = memo(({ file, onTextSelection, targetPage, highlightText, documentId }) => {
   const { isDarkMode } = useTheme();
   const viewerRef = useRef(null);
   const [isNavigating, setIsNavigating] = useState(false);
   const [selectionInfo, setSelectionInfo] = useState(null);
+  const apisRef = useRef(null);
+
+  // Load existing annotations from the database
+  const loadExistingAnnotations = async (apis, docId) => {
+    if (!docId) return;
+
+    try {
+      setIsLoadingAnnotations(true);
+      const response = await apiService.getDocumentAnnotations(docId);
+      const annotations = response.annotations || [];
+
+      if (annotations.length > 0) {
+        // Convert stored annotations back to Adobe format and add them
+        const adobeAnnotations = annotations.map(annotation => annotation.annotation_data);
+        await apis.addAnnotations(adobeAnnotations);
+        console.log(`Loaded ${annotations.length} existing annotations`);
+      }
+    } catch (error) {
+      console.error('Error loading existing annotations:', error);
+      toast.error('Failed to load existing highlights');
+    } finally {
+      setIsLoadingAnnotations(false);
+    }
+  };
+
+
 
   useEffect(() => {
     let selectionTimeout;
@@ -52,7 +79,9 @@ const PdfViewer = memo(({ file, onTextSelection, targetPage, highlightText }) =>
       const selection = window.getSelection();
       if (selection && selection.rangeCount > 0) {
         const text = selection.toString();
-        debounceSelection(text, "manual-idle");
+        if (text.trim().length > 0) {
+          debounceSelection(text, "manual-idle");
+        }
       }
     };
     document.addEventListener("selectionchange", handleSelectionChange);
@@ -96,7 +125,10 @@ const PdfViewer = memo(({ file, onTextSelection, targetPage, highlightText }) =>
 
           previewFilePromise.then((adobeViewer) => {
             adobeViewer.getAPIs().then((apis) => {
+              apisRef.current = apis;
               apis.enableTextSelection(true);
+
+
 
               if (targetPage && targetPage > 0) {
                 const attemptNavigation = (attempt = 1) => {
@@ -106,6 +138,7 @@ const PdfViewer = memo(({ file, onTextSelection, targetPage, highlightText }) =>
                     apis.gotoLocation(targetPage)
                       .then(() => {
                         setIsNavigating(false);
+                        toast.success(`Navigated to page ${targetPage}`);
                         if (highlightText && highlightText.trim()) {
                           setTimeout(() => {
                             apis
@@ -114,11 +147,12 @@ const PdfViewer = memo(({ file, onTextSelection, targetPage, highlightText }) =>
                           }, 1000);
                         }
                       })
-                      .catch(() => {
+                      .catch((error) => {
                         if (attempt < 3) {
                           attemptNavigation(attempt + 1);
                         } else {
                           setIsNavigating(false);
+                          toast.error(`Failed to navigate to page ${targetPage}`);
                         }
                       });
                   }, delay);
@@ -131,6 +165,8 @@ const PdfViewer = memo(({ file, onTextSelection, targetPage, highlightText }) =>
                   if (result?.type === "text" && result.data) {
                     debounceSelection(result.data, "adobe-api");
                   }
+                }).catch((error) => {
+                  // Silently handle errors - this is normal when no text is selected
                 });
               };
               selectionCheckInterval = setInterval(checkForSelection, 1000);
@@ -161,7 +197,7 @@ const PdfViewer = memo(({ file, onTextSelection, targetPage, highlightText }) =>
       clearInterval(selectionCheckInterval);
       document.querySelectorAll(".selection-notification").forEach((n) => n.remove());
     };
-  }, [file, onTextSelection, targetPage, highlightText, isDarkMode]);
+  }, [file, onTextSelection, targetPage, highlightText, isDarkMode, documentId]);
 
   const showSelectionFeedback = (text, rect) => {
     try {
@@ -223,6 +259,11 @@ const PdfViewer = memo(({ file, onTextSelection, targetPage, highlightText }) =>
           Navigating to page {targetPage}...
         </div>
       )}
+
+
+
+
+
       <div id="adobe-dc-view" className="w-full h-full"></div>
 
       {selectionInfo && (

@@ -19,11 +19,24 @@ class SectionExtractor:
         if len(text) <= 2: return False
         return True
 
-    def extract_from_pdf(self, pdf_path: str) -> list:
+    def extract_from_pdf(self, pdf_path: str) -> dict:
         doc_name = os.path.basename(pdf_path)
         sections = []
+        bookmarks = []
         try:
             doc = fitz.open(pdf_path)
+
+            # Extract bookmarks/table of contents
+            toc = doc.get_toc()
+            for item in toc:
+                level, title, page = item
+                bookmarks.append({
+                    "title": title.strip(),
+                    "page": page,
+                    "level": level
+                })
+
+            # Extract sections as before
             current_heading, current_content, heading_page = "Introduction", [], 1
             for page_num, page in enumerate(doc, 1):
                 for block in page.get_text("blocks"):
@@ -39,7 +52,11 @@ class SectionExtractor:
                 sections.append({"title": current_heading, "content": " ".join(current_content), "source": doc_name, "page": heading_page})
         except Exception as e:
             print(f"[ERROR] Could not process {doc_name}: {e}")
-        return sections
+
+        return {
+            "sections": sections,
+            "bookmarks": bookmarks
+        }
 
     def extract_parallel(self, pdf_paths: list) -> dict:
         results = {}
@@ -47,8 +64,11 @@ class SectionExtractor:
             future_to_path = {executor.submit(self.extract_from_pdf, path): path for path in pdf_paths}
             for future in future_to_path:
                 path = future_to_path[future]
-                try: results[path] = future.result()
-                except Exception as exc: results[path] = []
+                try:
+                    result = future.result()
+                    results[path] = result
+                except Exception as exc:
+                    results[path] = {"sections": [], "bookmarks": []}
         return results
 
 pdf_processor_service = SectionExtractor()
