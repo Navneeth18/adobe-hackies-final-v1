@@ -28,7 +28,7 @@ app = FastAPI(
 
 origins = [
     "http://localhost:5173",   # your React/Vite frontend
-    "http://localhost:5174",   # alternative port for frontend
+    "http://localhost:8080",   # alternative port for frontend
     # you can add more domains here, e.g. "https://yourdomain.com"
 ]
 

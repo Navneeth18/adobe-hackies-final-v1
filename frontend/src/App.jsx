@@ -681,7 +681,7 @@ function App() {
           </button>
                     <img src="/adobe1.svg" alt="Adobe" className="w-8 h-8 sm:w-12 sm:h-10" />
                                                   <h1 className="text-base sm:text-xl font-bold flex items-center gap-2 text-[var(--text-primary)] truncate">
-            AI Document Nexus -                         <span className="hidden sm:inline-flex bg-yellow-500 text-white px-3 py-1 rounded text-lg">
+            AI Document Nexus                          <span className="hidden sm:inline-flex bg-yellow-500 text-white px-3 py-1 rounded text-lg">
               Team Hackies
             </span>
           </h1>
