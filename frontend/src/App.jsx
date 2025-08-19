@@ -1147,14 +1147,14 @@ function App() {
             {/* Tab Content */}
             <div className="p-4">
               {/* Feature API status (cached via React Query) */}
-              {isFeatureLoading && (
+              {/* {isFeatureLoading && (
                 <div className="mb-3 text-xs text-[var(--text-secondary)]">Loading personalization features…</div>
-              )}
-              {featureError && (
+              )} */}
+              {/* {featureError && (
                 <div className="mb-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2">
                   Failed to load personalization features.
                 </div>
-              )}
+              )} */}
               {activeTab === 'snippets' && (
                 <Snippets 
                   snippets={snippets}
