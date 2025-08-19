@@ -35,8 +35,16 @@ class RecommendationService:
 
     def load_model(self):
         print(f"Loading recommendation model: {self.model_path}")
-        self.model = SentenceTransformer(self.model_path)
-        print("Recommendation model loaded.")
+        try:
+            # Try loading local model first
+            self.model = SentenceTransformer(self.model_path)
+            print("Recommendation model loaded from local path.")
+        except Exception as e:
+            print(f"Failed to load local model: {e}")
+            print("Downloading model from Hugging Face...")
+            # Fallback to downloading from Hugging Face
+            self.model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
+            print("Recommendation model loaded from Hugging Face.")
 
     def create_embeddings_batch(self, texts: list):
         if not self.model: raise RuntimeError("Model not loaded.")

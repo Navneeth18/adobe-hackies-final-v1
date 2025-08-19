@@ -1,4 +1,5 @@
 # backend/core/config.py
+from typing import Optional
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
@@ -6,10 +7,10 @@ class Settings(BaseSettings):
     MONGO_DATABASE_NAME: str
     LLM_PROVIDER: str = "gemini"
     GEMINI_MODEL: str = "gemini-2.5-flash"
-    GOOGLE_API_KEY: str | None = None
+    GOOGLE_API_KEY: Optional[str] = None
     TTS_PROVIDER: str = "azure"
-    AZURE_TTS_KEY: str | None = None
-    AZURE_TTS_REGION: str | None = None
+    AZURE_TTS_KEY: Optional[str] = None
+    AZURE_TTS_REGION: Optional[str] = None
 
     class Config:
         env_file = ".env"

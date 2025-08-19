@@ -1,0 +1,11 @@
+# Local backend Dockerfile that works around network issues
+FROM scratch
+
+# This is a placeholder approach since we can't pull external images
+# We'll need to run this differently
+
+COPY . /app
+WORKDIR /app
+
+# This won't work without a base image, but it's a placeholder
+CMD ["echo", "Backend container"]
