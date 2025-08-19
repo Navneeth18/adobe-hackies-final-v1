@@ -1,107 +1,162 @@
 # AI Nexus – Document Insight Engine
 
-A full-stack project built for the Adobe Hackathon Finale to help users upload, explore, and understand large PDF libraries using semantic search, LLM insights, knowledge visualization, podcasts, TTS, and an interactive Adobe PDF viewer.
+> **Demo Video**: [🎥 Watch Demo](https://your-demo-video-link-here.com)
 
-- Backend: FastAPI (Python), MongoDB (Motor), embeddings + vector search, Azure TTS
-- Frontend: React + Vite, Adobe Document Cloud View SDK, TailwindCSS, React Query
+A comprehensive AI-powered document intelligence platform that transforms PDF libraries into interactive knowledge hubs. Built for the Adobe Hackathon Finale with cutting-edge AI capabilities.
 
-## Features
-- Document library with PDF upload and storage
-- Semantic search across extracted sections
-- “Talk to PDF” chat powered by retrieval-augmented generation (RAG)
-- LLM-generated insights from selected text or sections
-- Podcast/audio generation from summaries or discussions
-- Text-to-speech (Azure) with SSML and multiple voices
-- Mindmap generation (Mermaid / FreeMind) from PDFs or selected text
-- Recommendations for related content/sections
-- Rich PDF viewing via Adobe SDK with selection, navigation, and highlights
+## ✨ Features Overview
 
-## Project Structure
-- `backend/`
-  - `main.py`: FastAPI entrypoint, CORS, lifespan init, router mounting at `/api`
-  - `api/v1/router.py`: Groups v1 API under `/api/v1` and includes sub-routers
-  - `api/v1/endpoints/`: Feature endpoints (documents, recommendations, insights, podcast, graph, audio, chat, mindmap, tts)
-  - `core/config.py`: Environment settings (MongoDB, LLM, Azure TTS)
-  - `services/`: LLM/TTS/recommendation utilities
-  - `db/`: MongoDB connection
-- `frontend/`
-  - `src/App.jsx`: Main app, feature orchestration
-  - `src/components/PdfViewer.jsx`: Adobe PDF viewer integration
-  - `src/components/MindmapPanel.jsx`: Mindmap UI and logic
-  - `index.html`: Loads Adobe View SDK script
+### 📚 Document Management
+- **PDF Upload & Processing**: Drag-and-drop upload with intelligent text extraction
+- **Document Library**: Centralized storage and management of PDF collections
+- **Adobe PDF Viewer**: Rich viewing experience with text selection and highlights
+- **Semantic Search**: AI-powered search across document content using vector embeddings
 
-## Environment Variables
-Create `.env` files in each app (examples below).
+### 🤖 AI-Powered Intelligence
+- **Talk to PDF**: RAG-based conversational interface for document Q&A
+- **Smart Insights**: LLM-generated insights from selected text or document sections
+- **Content Recommendations**: AI-suggested related sections and documents
+- **Knowledge Graphs**: Visual representation of document relationships
 
-Backend (`backend/.env`): see `backend/core/config.py`
-- `MONGO_CONNECTION_STRING` (required)
-- `MONGO_DATABASE_NAME` (required)
-- `LLM_PROVIDER` (default: `gemini`)
-- `GEMINI_MODEL` (default: `gemini-2.5-flash`)
-- `GOOGLE_API_KEY` (required if using Gemini)
-- `TTS_PROVIDER` (default: `azure`)
-- `AZURE_TTS_KEY` (required for Azure TTS)
-- `AZURE_TTS_REGION` (required for Azure TTS)
+### 🎨 Content Generation
+- **Mindmap Creation**: Generate interactive mindmaps in Mermaid and FreeMind formats
+- **Podcast Generation**: Convert documents into engaging AI-generated audio discussions
+- **Text-to-Speech**: Azure TTS with SSML support and multiple voice options
+- **Audio Export**: Download generated podcasts and TTS audio
 
-Frontend (`frontend/.env`):
-- `ADOBE_EMBED_API_KEY` (required for Adobe PDF viewer)
+### 🔍 Advanced Search & Analysis
+- **Vector Search**: Semantic similarity search across document collections
+- **Section Analysis**: Automatic document structure detection and extraction
+- **Multi-document Insights**: Cross-document analysis and recommendations
 
-Example templates: `backend/.env.example` and `frontend/.env.example`.
+## 🚀 Docker Setup
 
-## Local Setup
-Prereqs: Recent Python 3.x, Node.js (LTS), MongoDB instance, and required API keys.
+### Prerequisites
+- Docker and Docker Compose installed
+- API keys for Google Gemini and Azure TTS
+- Adobe Embed API key
 
-1) Backend
-- Open a terminal at `backend/`
-- Create/activate venv and install deps
-  - Windows PowerShell:
-    - `python -m venv venv`
-    - `venv\Scripts\Activate.ps1`
-  - Install: `pip install -r requirements.txt`
-- Configure `backend/.env` (see example)
-- Run API: `uvicorn main:app --reload --port 8000`
-- API base URL: `http://localhost:8000`
+### Quick Start
+```bash
+# 1. Clone the repository
+git clone <repository-url>
+cd adobe-hackies-final-v1
 
-2) Frontend
-- Open a terminal at `frontend/`
-- Install deps: `npm install`
-- Configure `frontend/.env` with `ADOBE_EMBED_API_KEY`
-- Run dev server: `npm run dev` (default Vite port 5173)
-- Frontend URL: `http://localhost:5173`
+# 2. Configure environment variables (see below)
+# Create backend/.env and frontend/.env files
 
-CORS is preconfigured in `backend/main.py` for `http://localhost:5173` and `http://localhost:8080`.
+# 3. Start the application
+docker-compose up -d
 
-## API Overview
-Base path: `http://localhost:8000/api/v1`
-Routers included in `backend/api/v1/router.py`:
-- `documents` – upload, list, retrieve, delete, serve original PDFs, and semantic search
-- `chat` – RAG-style Q&A over documents/sections
-- `insights` – LLM insights for provided text and context
-- `podcast` – generate podcast audio and serve files
-- `tts` – Azure TTS synthesis and audio serving
-- `graph` – knowledge graph for a document cluster
-- `mindmap` – generate mindmaps (Mermaid/FreeMind) from PDFs, existing docs, or text
-- `recommendations` – related section recommendations
-- `audio` – advanced podcast/audio endpoints
+# 4. Access the application
+# Frontend: http://localhost:8080
+# Backend API: http://localhost:8000
+# API Docs: http://localhost:8000/docs
+```
 
-For exact request/response schemas, see the corresponding files under `backend/api/v1/endpoints/`.
+### Docker Commands
+```bash
+# Production deployment
+docker-compose up -d
 
-## Frontend Highlights
-- Adobe PDF viewer (`frontend/src/components/PdfViewer.jsx`) with selection/highlight events
-- Mindmap UI (`frontend/src/components/MindmapPanel.jsx`) with visual/code view, download, copy
-- Main orchestration in `frontend/src/App.jsx` for uploads, library, search, insights, podcast, chat, and mindmaps
+# Development with live reload
+docker-compose -f docker-compose.dev.yml up -d
 
-## Troubleshooting
-- Adobe viewer not rendering:
-  - Ensure `<script src="https://documentcloud.adobe.com/view-sdk/main.js"></script>` exists in `frontend/index.html`
-  - Verify `ADOBE_EMBED_API_KEY` is set and the container has non-zero size
-- CORS issues: confirm frontend URL is allowed in `backend/main.py`
-- TTS errors: check `AZURE_TTS_KEY` and `AZURE_TTS_REGION`
-- LLM errors: ensure `LLM_PROVIDER`, `GEMINI_MODEL`, and `GOOGLE_API_KEY` (if Gemini) are set
+# Local development
+docker-compose -f docker-compose.local.yml up -d
 
-## Scripts & Commands
-- Frontend: `npm run dev`
-- Backend: run with `uvicorn main:app --reload --port 8000` from `backend/`
+# Stop services
+docker-compose down
 
-## License
-Internal hackathon project. Add a license if you plan to open source.
+# View logs
+docker-compose logs -f
+
+# Rebuild containers
+docker-compose build --no-cache
+```
+
+## 🔧 Environment Variables
+
+### Backend Configuration (`backend/.env`)
+```env
+# Database Configuration
+MONGO_CONNECTION_STRING=mongodb://mongo:27017
+MONGO_DATABASE_NAME=adobe
+
+# LLM Provider Settings
+LLM_PROVIDER=gemini
+GEMINI_MODEL=gemini-2.5-flash
+GOOGLE_API_KEY=your_google_api_key_here
+
+# Text-to-Speech Configuration
+TTS_PROVIDER=azure
+AZURE_TTS_KEY=your_azure_tts_key_here
+AZURE_TTS_REGION=your_azure_region_here
+
+# Optional Settings
+PYTHONPATH=/app
+```
+
+### Frontend Configuration (`frontend/.env`)
+```env
+# Adobe PDF Viewer
+ADOBE_EMBED_API_KEY=your_adobe_embed_api_key_here
+
+# API Base URL (optional, defaults to localhost:8000)
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+### Required API Keys
+
+#### Google Gemini API Key
+1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Create a new API key
+3. Add to `GOOGLE_API_KEY` in backend/.env
+
+#### Azure Text-to-Speech
+1. Create Azure Cognitive Services resource
+2. Get subscription key and region
+3. Add to `AZURE_TTS_KEY` and `AZURE_TTS_REGION`
+
+#### Adobe Embed API Key
+1. Visit [Adobe Developer Console](https://developer.adobe.com/console)
+2. Create new project and add PDF Embed API
+3. Add to `ADOBE_EMBED_API_KEY` in frontend/.env
+
+## 🏗️ Tech Stack
+
+- **Backend**: FastAPI (Python), MongoDB, Google Gemini LLM, Azure TTS
+- **Frontend**: React 19 + Vite, Adobe Document Cloud SDK, TailwindCSS
+- **Infrastructure**: Docker, Docker Compose, Multi-stage builds
+- **AI/ML**: Sentence Transformers, Vector Search, RAG Pipeline
+- **Database**: MongoDB with Motor async driver
+
+## 📁 Project Structure
+
+```
+adobe-hackies-final-v1/
+├── backend/                    # FastAPI Python Backend
+│   ├── api/v1/endpoints/      # API endpoints for all features
+│   ├── services/              # AI services and business logic
+│   ├── core/                  # Configuration and settings
+│   └── db/                    # Database connections
+├── frontend/                  # React + Vite Frontend
+│   ├── src/components/        # React components
+│   └── src/services/          # API client services
+├── docker-compose.yml         # Production deployment
+├── docker-compose.dev.yml     # Development environment
+└── Dockerfile                # Multi-stage build configuration
+```
+
+## 🚨 Troubleshooting
+
+### Common Issues
+- **MongoDB Connection**: Ensure MongoDB is running and connection string is correct
+- **API Keys**: Verify all required API keys are set in environment files
+- **Docker Issues**: Try `docker-compose down && docker-compose build --no-cache && docker-compose up -d`
+- **Port Conflicts**: Ensure ports 8000 and 8080/5173 are available
+
+### Support
+For detailed implementation guides:
+- Backend API documentation: See `backend/README.md`
+- Frontend development guide: See `frontend/README.md`
