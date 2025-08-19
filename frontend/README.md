@@ -1,47 +1,135 @@
-# Document Insight Engine Frontend
+# AI Nexus Frontend - React Application
 
-## Features
+Modern React frontend providing an intuitive interface for AI-powered document intelligence with rich PDF viewing, chat interactions, and multimedia generation.
 
-### Document Library
-- **View Uploaded Documents**: The document library section now displays all previously uploaded PDF documents from the database
-- **Document Selection**: Click on any document in the library to view its extracted sections and content
-- **Document Information**: View detailed information about selected documents including filename, cluster ID, and number of sections
-- **Auto-refresh**: The library automatically refreshes after new uploads and includes a manual refresh button
+## ✨ Key Features
 
-### Document Viewing
-- **Section Display**: When a document is selected from the library, all its extracted sections are displayed in a readable format
-- **Content Preview**: View the actual text content of each section with titles and page numbers
-- **Responsive Layout**: The document viewer adapts to show either uploaded files or library documents
+### 📚 Document Management
+- **Drag & Drop Upload**: Intuitive file upload with real-time progress tracking
+- **Document Library**: Centralized PDF collection with search and filtering
+- **Adobe PDF Viewer**: Rich PDF viewing with text selection, highlights, and annotations
+- **File Management**: Upload, view, delete, and organize document collections
 
-### Upload Integration
-- **Seamless Workflow**: After uploading new documents, the library automatically updates to include them
-- **Session Management**: Current upload session files are managed separately from the persistent document library
+### 🤖 AI-Powered Interactions
+- **Talk to PDF**: Conversational interface with RAG-powered document Q&A
+- **Smart Insights**: Generate AI insights from selected text or document sections
+- **Semantic Search**: Vector-based search across entire document collections
+- **Content Recommendations**: AI-suggested related sections and documents
 
-## API Endpoints Used
+### 🎨 Visual Content Generation
+- **Interactive Mindmaps**: Create and edit mindmaps from documents in Mermaid format
+- **Knowledge Visualization**: Visual representation of document relationships
+- **Diagram Rendering**: Real-time Mermaid diagram visualization with editing capabilities
+- **Export Options**: Download mindmaps in multiple formats (Mermaid, FreeMind)
 
-### Backend Endpoints
-- `GET /api/v1/documents` - Retrieve all uploaded documents
-- `GET /api/v1/documents/{cluster_id}` - Retrieve documents by cluster ID
-- `GET /api/v1/documents/sections/{document_id}` - Retrieve sections for a specific document
-- `POST /api/v1/documents/upload_cluster` - Upload multiple PDFs as a cluster
+### 🎧 Audio & Multimedia
+- **Podcast Generation**: Convert documents into engaging AI-generated discussions
+- **Text-to-Speech**: Multi-voice TTS with Azure neural voices
+- **Audio Controls**: Play, pause, download, and manage generated audio content
+- **Voice Selection**: Choose from multiple languages and voice personalities
 
-### Frontend API Service Methods
-- `apiService.getDocuments()` - Fetch all documents
-- `apiService.getDocumentsByCluster(clusterId)` - Fetch documents by cluster
-- `apiService.getDocumentSections(documentId)` - Fetch document sections
-- `apiService.uploadCluster(files)` - Upload new documents
+### 🎯 User Experience
+- **Responsive Design**: Mobile-first design that works on all devices
+- **Dark/Light Themes**: Toggle between theme modes for comfortable viewing
+- **Real-time Updates**: Live feedback for all operations and processing
+- **Intuitive Navigation**: Tab-based interface for easy feature access
 
-## Usage
+## 🔧 Tech Stack & Libraries
 
-1. **Upload Documents**: Use the file upload section to add new PDFs to the system
-2. **View Library**: The document library will show all previously uploaded documents
-3. **Select Document**: Click on any document in the library to view its content
-4. **View Sections**: The center area will display all extracted sections from the selected document
-5. **Refresh**: Use the refresh button to manually update the document library
+### Core Framework
+- **React 19.1.1**: Latest React with concurrent features and improved performance
+- **Vite 7.1.2**: Lightning-fast build tool and development server
+- **JavaScript ES6+**: Modern JavaScript with async/await and modules
 
-## Technical Implementation
+### UI & Styling
+- **TailwindCSS 4.1.12**: Utility-first CSS framework for rapid UI development
+- **Lucide React 0.539.0**: Modern, customizable icon library with 1000+ icons
+- **Custom CSS**: Component-specific styling for complex interactions
 
-- **State Management**: Uses React hooks to manage document library state
-- **Error Handling**: Comprehensive error handling for API calls and data loading
-- **Loading States**: Visual feedback during data fetching operations
-- **Responsive Design**: Tailwind CSS for modern, responsive UI
+### State Management & Data
+- **React Query (TanStack) 5.85.3**: Powerful data fetching and caching library
+- **React Hooks**: Built-in state management with useState, useEffect, useContext
+- **Local Storage**: Client-side persistence for user preferences
+
+### PDF & Document Handling
+- **Adobe Document Cloud View SDK**: Official Adobe PDF viewer with rich features
+- **React PDF Viewer 3.12.0**: Alternative PDF viewing with custom controls
+- **File API**: Modern browser file handling for uploads and downloads
+
+### Visualization & Graphics
+- **Mermaid 10.9.3**: Diagram and flowchart generation from text
+- **Custom Canvas**: Interactive diagram editing and manipulation
+- **SVG Rendering**: Scalable vector graphics for icons and illustrations
+
+### Notifications & Feedback
+- **React Hot Toast 2.6.0**: Elegant toast notifications with animations
+- **Loading States**: Custom loading spinners and progress indicators
+- **Error Boundaries**: Graceful error handling and user feedback
+
+### Development Tools
+- **ESLint 9.33.0**: Code linting and quality enforcement
+- **Vite Plugins**: React plugin for optimal development experience
+- **TypeScript Support**: Type definitions for better development experience
+
+## 🚀 Development Setup
+
+### Prerequisites
+- Node.js 18+ and npm
+- Adobe Embed API key
+- Backend API running on port 8000
+
+### Installation & Running
+```bash
+cd frontend
+npm install
+cp .env.example .env
+# Configure your Adobe API key in .env
+npm run dev
+```
+
+### Environment Configuration
+```env
+# Required
+ADOBE_EMBED_API_KEY=your_adobe_api_key_here
+
+# Optional (defaults to localhost:8000)
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+### Available Scripts
+```bash
+npm run dev          # Start development server (http://localhost:5173)
+npm run build        # Build for production
+npm run preview      # Preview production build
+npm run lint         # Run ESLint
+```
+
+## 🏗️ Component Architecture
+
+### Core Components
+- **`App.jsx`**: Main application with tab navigation and state management
+- **`PdfViewer.jsx`**: Adobe PDF SDK integration with text selection events
+- **`DragDropUpload.jsx`**: File upload interface with progress tracking
+- **`TalkToPdfModal.jsx`**: Chat interface for document Q&A
+- **`MindmapPanel.jsx`**: Mindmap generation and visualization
+- **`SelectedTextPodcast.jsx`**: Podcast creation from selected content
+
+### UI Components
+- **`LoadingSpinner.jsx`**: Loading state indicators
+- **`ConfirmationModal.jsx`**: User confirmation dialogs
+- **`ThemeToggle.jsx`**: Dark/light theme switching
+- **`MermaidRenderer.jsx`**: Mermaid diagram visualization
+- **`Snippets.jsx`**: Document section display
+
+## 📱 Responsive Design
+
+### Breakpoints
+- **Mobile**: 320px - 768px
+- **Tablet**: 768px - 1024px  
+- **Desktop**: 1024px+
+
+### Features
+- Mobile-first approach
+- Touch-friendly interactions
+- Adaptive layouts
+- Optimized for all screen sizes
