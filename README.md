@@ -87,14 +87,14 @@ MONGO_DATABASE_NAME=adobe-hackies
 LLM_PROVIDER=gemini
 GEMINI_MODEL=gemini-2.5-flash
 GOOGLE_API_KEY=your_google_api_key_here
+GOOGLE_APPLICATION_CREDENTIALS=your_google_credentials
 
 # Text-to-Speech Configuration
 TTS_PROVIDER=azure
 AZURE_TTS_KEY=your_azure_tts_key_here
-AZURE_TTS_REGION=your_azure_region_here
+AZURE_TTS_ENDPOINT=your_azure_tts_endpoint
 
-# Optional Settings
-PYTHONPATH=/app
+
 ```
 
 ### Frontend Configuration (`frontend/.env`)
