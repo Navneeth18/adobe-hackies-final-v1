@@ -10,8 +10,10 @@ import MindmapModal from "./components/MindmapModal";
 import LoadingSpinner from "./components/LoadingSpinner";
 import ConfirmationModal from "./components/ConfirmationModal";
 import SelectedTextPodcast from "./components/SelectedTextPodcast";
+import DragDropUpload from "./components/DragDropUpload";
 import { useTheme } from "./context/ThemeContext";
 import toast, { Toaster } from "react-hot-toast";
+import logo from "./assets/adobe1.svg";
 import { FileText, Menu, X, Mic, RefreshCw, Brain, Trash2 } from "lucide-react";
 
 function App() {
@@ -575,10 +577,34 @@ function App() {
     }
   };
 
-  // Handle file upload
-  const handleFileUpload = (event) => {
-    const newFiles = Array.from(event.target.files);
-    setStagedFiles((prevFiles) => [...prevFiles, ...newFiles]);
+  // Handle file upload (works with both drag&drop and file input)
+  const handleFileUpload = (filesOrEvent) => {
+    let newFiles;
+    
+    // Check if it's an event (from file input) or files array (from drag&drop)
+    if (filesOrEvent.target) {
+      newFiles = Array.from(filesOrEvent.target.files);
+    } else {
+      newFiles = Array.isArray(filesOrEvent) ? filesOrEvent : [filesOrEvent];
+    }
+    
+    // Filter out duplicates
+    const uniqueFiles = newFiles.filter(newFile => 
+      !stagedFiles.some(existingFile => 
+        existingFile.name === newFile.name && existingFile.size === newFile.size
+      )
+    );
+    
+    if (uniqueFiles.length < newFiles.length) {
+      toast.info(`${newFiles.length - uniqueFiles.length} duplicate file(s) skipped`);
+    }
+    
+    setStagedFiles((prevFiles) => [...prevFiles, ...uniqueFiles]);
+    
+    // Auto-select first file if none selected
+    if (!selectedFile && uniqueFiles.length > 0) {
+      setSelectedFile(uniqueFiles[0]);
+    }
   };
 
   // Upload cluster to backend
@@ -671,8 +697,7 @@ function App() {
             }`}
             title={uploadedDocuments.length === 0 ? "Upload documents first" : "Talk to your PDFs using voice"}
           >
-                                    <span className=" sm:inline flex hidden items-center gap-2"><Mic size={16} /> Talk to PDF</span>
-            <span className="sm:hidden"><Mic size={16} /></span>
+            <span className="inline-flex items-center gap-2"><Mic size={16} /> Talk to PDF</span>
           </button>
           {/* <button
             onClick={() => setIsMindmapOpen(true)}
@@ -712,18 +737,14 @@ function App() {
             </button>
           </div>
           
-          {/* File Input */}
-          <div className="border-2 border-dashed border-[var(--border-color)] rounded-lg p-6 text-center mb-4 bg-[var(--card-bg)]">
-            <input
-                type="file"
-                accept="application/pdf"
-                multiple
-                onChange={handleFileUpload}
-                className="block w-full text-sm text-[var(--text-primary)] cursor-pointer"
-              />
-              <p className="text-[var(--text-secondary)] text-xs mt-2">
-              Upload multiple PDFs to analyze connections
-            </p>
+          {/* Drag & Drop File Upload */}
+          <div className="mb-4">
+            <DragDropUpload
+              onFilesSelected={handleFileUpload}
+              accept="application/pdf"
+              multiple={true}
+              disabled={isUploading}
+            />
           </div>
 
           {/* Staged Files List */}
