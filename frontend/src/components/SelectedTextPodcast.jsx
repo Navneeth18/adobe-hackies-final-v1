@@ -69,7 +69,7 @@ const SelectedTextPodcast = ({
     <div className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-lg p-4 mb-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2">
-          🎧 Selected Text Podcast
+          🎧 Selected Text Overview
         </h3>
         {onClose && (
           <button
@@ -111,10 +111,10 @@ const SelectedTextPodcast = ({
           {isGenerating ? (
             <span className="flex items-center justify-center gap-2">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              Generating Comprehensive Podcast...
+              Generating Comprehensive Overview...
             </span>
           ) : (
-            "🎙️ Generate Podcast with Insights"
+            "🎙️ Generate Overview"
           )}
         </button>
         
@@ -164,7 +164,7 @@ const SelectedTextPodcast = ({
           {audioUrl && (
             <div className="mb-4">
               <h4 className="text-sm font-medium text-[var(--text-primary)] mb-2">
-                🎵 Generated Podcast
+                🎵 Generated Overview
               </h4>
               <div className="bg-[var(--bg)] border border-[var(--border-color)] rounded p-3">
                 <audio 
@@ -181,7 +181,7 @@ const SelectedTextPodcast = ({
                     onClick={handleDownload}
                     className="flex-1 py-2 px-3 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm font-medium"
                   >
-                    📥 Download Podcast
+                    📥 Download audio
                   </button>
                   <button
                     onClick={() => {
