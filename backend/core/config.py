@@ -7,10 +7,10 @@ class Settings(BaseSettings):
     LLM_PROVIDER: str = "gemini"
     GEMINI_MODEL: str = "gemini-2.5-flash"
     GOOGLE_API_KEY: str | None = None
+    GOOGLE_APPLICATION_CREDENTIALS: str | None = None
     TTS_PROVIDER: str = "azure"
     AZURE_TTS_KEY: str | None = None
     AZURE_TTS_ENDPOINT: str
-    # AZURE_TTS_REGION: str | None = None
 
     class Config:
         env_file = ".env"
