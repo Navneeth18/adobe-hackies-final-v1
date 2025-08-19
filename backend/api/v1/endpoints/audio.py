@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Request
 from typing import Dict, List, Optional
 from services.tts_service import tts_service
 from services.enhanced_podcast_service import enhanced_podcast_service
+from services.selected_text_podcast_service import selected_text_podcast_service
 from pydantic import BaseModel
 import os
 import logging
@@ -14,6 +15,12 @@ class MultilingualPodcastRequest(BaseModel):
     language: str = "en"
     summarize: bool = True
     size: str = "medium"  # small, medium, large
+
+class SelectedTextPodcastRequest(BaseModel):
+    selected_text: str
+    document_id: Optional[str] = None
+    section_title: Optional[str] = None
+    page_number: Optional[int] = None
 
 @router.post("/generate-podcast")
 async def generate_podcast(request: Dict):
@@ -188,4 +195,59 @@ async def serve_multilingual_audio_file(audio_id: str):
         raise he
     except Exception as e:
         logger.error(f"Error serving multilingual audio file: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/generate-selected-text-podcast")
+async def generate_selected_text_podcast(request: SelectedTextPodcastRequest):
+    """Generate a comprehensive podcast from selected text with current section, relevant sections, and insights"""
+    try:
+        logger.info(f"Generating selected text podcast for: {request.selected_text[:50]}...")
+        
+        # Generate podcast using the selected text podcast service
+        result = await selected_text_podcast_service.generate_podcast_from_selected_text(
+            selected_text=request.selected_text,
+            document_id=request.document_id,
+            section_title=request.section_title,
+            page_number=request.page_number
+        )
+        
+        if not result["success"]:
+            raise HTTPException(status_code=500, detail=result.get("error", "Failed to generate podcast"))
+        
+        return {
+            "success": True,
+            "audio_id": result["audio_id"],
+            "audio_filename": result["audio_filename"],
+            "script_preview": result.get("script_preview", ""),
+            "sections_included": result.get("sections_included", 0),
+            "insights_count": result.get("insights_count", 0),
+            "message": "Selected text podcast generated successfully with comprehensive insights!"
+        }
+        
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error generating selected text podcast: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/serve-selected-text/{audio_id}")
+async def serve_selected_text_audio_file(audio_id: str):
+    """Serve selected text podcast audio file"""
+    from fastapi.responses import FileResponse
+    try:
+        audio_path = f"{audio_id}.mp3"
+        
+        if os.path.exists(audio_path):
+            return FileResponse(
+                audio_path,
+                media_type="audio/mpeg",
+                filename=f"selected_text_podcast_{audio_id}.mp3"
+            )
+        else:
+            raise HTTPException(status_code=404, detail="Selected text podcast audio file not found")
+        
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error serving selected text podcast audio file: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

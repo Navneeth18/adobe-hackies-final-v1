@@ -9,6 +9,7 @@ import TalkToPdfModal from "./components/TalkToPdfModal";
 import MindmapModal from "./components/MindmapModal";
 import LoadingSpinner from "./components/LoadingSpinner";
 import ConfirmationModal from "./components/ConfirmationModal";
+import SelectedTextPodcast from "./components/SelectedTextPodcast";
 import { useTheme } from "./context/ThemeContext";
 import toast, { Toaster } from "react-hot-toast";
 import { FileText, Menu, X, Mic, RefreshCw, Brain, Trash2 } from "lucide-react";
@@ -1229,6 +1230,22 @@ function App() {
                       Generate AI-powered audio content from your PDFs in multiple languages and sizes.
                     </p>
                   </div>
+
+                  {/* Selected Text Podcast - Only show if text is selected */}
+                  {selectedText && (
+                    <SelectedTextPodcast
+                      selectedText={selectedText}
+                      documentId={activeDocumentTab}
+                      sectionTitle={(() => {
+                        const activeDoc = selectedDocuments.find(doc => doc._id === activeDocumentTab);
+                        return activeDoc?.isDuplicate ? activeDoc.filename.split('(Section: ')[1]?.replace(')', '') : null;
+                      })()}
+                      pageNumber={(() => {
+                        const activeDoc = selectedDocuments.find(doc => doc._id === activeDocumentTab);
+                        return activeDoc?.targetPage || null;
+                      })()}
+                    />
+                  )}
 
                   {/* Language and Size Selection */}
                   <div className="bg-[var(--bg)] p-4 rounded-lg">

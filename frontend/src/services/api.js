@@ -405,4 +405,31 @@ export const apiService = {
       throw error;
     }
   },
+
+  // Generate selected text podcast with comprehensive insights
+  generateSelectedTextPodcast: async (selectedText, documentId = null, sectionTitle = null, pageNumber = null) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/audio/generate-selected-text-podcast`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          selected_text: selectedText,
+          document_id: documentId,
+          section_title: sectionTitle,
+          page_number: pageNumber
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Selected text podcast generation failed: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error generating selected text podcast:', error);
+      throw error;
+    }
+  },
 };
