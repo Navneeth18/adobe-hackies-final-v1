@@ -13,6 +13,7 @@ import SelectedTextPodcast from "./components/SelectedTextPodcast";
 import { useTheme } from "./context/ThemeContext";
 import toast, { Toaster } from "react-hot-toast";
 import { FileText, Menu, X, Mic, RefreshCw, Brain, Trash2 } from "lucide-react";
+import { useFeatureData } from "./hooks/useFeatureData";
 
 function App() {
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
@@ -74,6 +75,13 @@ function App() {
   // Confirmation modal state
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState(null);
+
+  // Fetch Adobe Feature API once and cache via React Query
+  const {
+    data: featureData,
+    isLoading: isFeatureLoading,
+    error: featureError,
+  } = useFeatureData();
 
   // Fetch uploaded documents and supported languages on component mount
   useEffect(() => {
@@ -1117,12 +1125,22 @@ function App() {
             
             {/* Tab Content */}
             <div className="p-4">
+              {/* Feature API status (cached via React Query) */}
+              {isFeatureLoading && (
+                <div className="mb-3 text-xs text-[var(--text-secondary)]">Loading personalization features…</div>
+              )}
+              {featureError && (
+                <div className="mb-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2">
+                  Failed to load personalization features.
+                </div>
+              )}
               {activeTab === 'snippets' && (
                 <Snippets 
                   snippets={snippets}
                   selectedText={selectedText}
                   onSnippetClick={handleSnippetClick}
                   isLoading={isSearchingSnippets}
+                  data={featureData}
                 />
               )}
               
@@ -1208,6 +1226,7 @@ function App() {
                     <InsightPanel 
                       contradictions={contradictions} 
                       alternateViewpoints={alternateViewpoints} 
+                      data={featureData}
                     />
                   )}
                   
@@ -1244,6 +1263,7 @@ function App() {
                         const activeDoc = selectedDocuments.find(doc => doc._id === activeDocumentTab);
                         return activeDoc?.targetPage || null;
                       })()}
+                      data={featureData}
                     />
                   )}
 
