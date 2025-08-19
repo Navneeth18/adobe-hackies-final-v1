@@ -81,7 +81,7 @@ docker-compose build --no-cache
 ```env
 # Database Configuration
 MONGO_CONNECTION_STRING=mongodb://mongo:27017
-MONGO_DATABASE_NAME=adobe
+MONGO_DATABASE_NAME=adobe-hackies
 
 # LLM Provider Settings
 LLM_PROVIDER=gemini
@@ -100,7 +100,7 @@ PYTHONPATH=/app
 ### Frontend Configuration (`frontend/.env`)
 ```env
 # Adobe PDF Viewer
-ADOBE_EMBED_API_KEY=your_adobe_embed_api_key_here
+ADOBE_EMBED_API_KEY=2a66854b8d8344dd9823037c42db2295
 
 # API Base URL (optional, defaults to localhost:8000)
 VITE_API_BASE_URL=http://localhost:8000
@@ -116,7 +116,7 @@ VITE_API_BASE_URL=http://localhost:8000
 #### Azure Text-to-Speech
 1. Create Azure Cognitive Services resource
 2. Get subscription key and region
-3. Add to `AZURE_TTS_KEY` and `AZURE_TTS_REGION`
+3. Add to `AZURE_TTS_KEY` and `AZURE_TTS_ENDPOINT`
 
 #### Adobe Embed API Key
 1. Visit [Adobe Developer Console](https://developer.adobe.com/console)
