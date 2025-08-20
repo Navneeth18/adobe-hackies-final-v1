@@ -1,6 +1,6 @@
 # AI Nexus – Document Insight Engine
 
-> **Demo Video**: [🎥 Watch Demo](https://your-demo-video-link-here.com)
+> **Demo Video**: [🎥 Watch Demo](https://drive.google.com/file/d/1marIhmZvvUtLh5wtS4zAtEZIdfhJmfQJ/view?usp=sharing)
 
 A comprehensive AI-powered document intelligence platform that transforms PDF libraries into interactive knowledge hubs. Built for the Adobe Hackathon Finale with cutting-edge AI capabilities.
 
