@@ -1,4 +1,5 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Hardcoded fix for the double API path issue
+const API_BASE_URL = 'http://localhost:8000';
 const API_V1_BASE_URL = `${API_BASE_URL}/api/v1`;
 
 export const apiService = {
@@ -269,7 +270,7 @@ export const apiService = {
       const formData = new FormData();
 
       // Append all files to the form data
-      files.forEach((file, index) => {
+      files.forEach((file) => {
         formData.append('files', file);
       });
 
