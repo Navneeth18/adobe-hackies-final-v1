@@ -57,22 +57,12 @@ docker-compose up -d
 ### Docker Commands
 ```bash
 # Production deployment
-docker-compose up -d
-
-# Development with live reload
-docker-compose -f docker-compose.dev.yml up -d
-
-# Local development
-docker-compose -f docker-compose.local.yml up -d
+docker compose up --build
 
 # Stop services
-docker-compose down
+docker compose down
 
-# View logs
-docker-compose logs -f
 
-# Rebuild containers
-docker-compose build --no-cache
 ```
 
 ## 🔧 Environment Variables
@@ -102,8 +92,6 @@ AZURE_TTS_ENDPOINT=your_azure_tts_endpoint
 # Adobe PDF Viewer
 ADOBE_EMBED_API_KEY=2a66854b8d8344dd9823037c42db2295
 
-# API Base URL (optional, defaults to localhost:8000)
-VITE_API_BASE_URL=http://localhost:8000
 ```
 
 ### Required API Keys
