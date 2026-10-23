@@ -1,117 +1,204 @@
-# Architecture & User Flows — AI Nexus
+# VJ Hostel Management System - Architecture & User Flow Diagrams
 
-This document contains the project architecture as importable draw.io XML. Open the file in diagrams.net and import it to view the diagram visually.
-
-## Architecture diagram (draw.io XML)
-
-```xml name=ai-nexus-architecture.drawio.xml
-<mxfile host="app.diagrams.net" modified="2026-10-23T00:00:00.000Z" agent="Copilot" version="24.7.17">
-  <diagram id="ai-nexus-architecture" name="AI Nexus Architecture">
-    <mxGraphModel dx="1800" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1200" math="0" shadow="0">
-      <root>
-        <mxCell id="title"/>
-        <mxCell id="root" parent="title"/>
-
-        <mxCell id="titleText" value="AI Nexus Architecture" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=28;fontStyle=1;fontColor=#1F2937;" vertex="1" parent="root">
-          <mxGeometry x="300" y="20" width="760" height="40" as="geometry"/>
-        </mxCell>
-
-        <!-- User -->
-        <mxCell id="user" value="User\nBrowser" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#111827;strokeWidth=1.5;fontSize=16;" vertex="1" parent="root">
-          <mxGeometry x="70" y="120" width="140" height="70" as="geometry"/>
-        </mxCell>
-
-        <!-- Frontend -->
-        <mxCell id="frontend" value="Frontend\nReact + Vite\nAdobe Embed SDK" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF3FF;strokeColor=#2F6FDB;strokeWidth=1.5;fontSize=16;" vertex="1" parent="root">
-          <mxGeometry x="270" y="90" width="220" height="120" as="geometry"/>
-        </mxCell>
-
-        <!-- Backend -->
-        <mxCell id="backend" value="Backend\nFastAPI\napi/v1 routes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF7EA;strokeColor=#2E7D32;strokeWidth=1.5;fontSize=16;" vertex="1" parent="root">
-          <mxGeometry x="560" y="80" width="300" height="150" as="geometry"/>
-        </mxCell>
-
-        <!-- Services -->
-        <mxCell id="services" value="Services\n• pdf_processor\n• llm_service\n• embeddings/vector search\n• tts_service\n• mindmap_service\n• podcast/recommendation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF4E5;strokeColor=#F2994A;strokeWidth=1.5;fontSize=15;" vertex="1" parent="root">
-          <mxGeometry x="560" y="270" width="360" height="220" as="geometry"/>
-        </mxCell>
-
-        <!-- MongoDB -->
-        <mxCell id="mongodb" value="MongoDB\nDocuments\nAudio files\nSessions" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;fillColor=#F5EAFB;strokeColor=#9C27B0;strokeWidth=1.5;fontSize=16;" vertex="1" parent="root">
-          <mxGeometry x="980" y="120" width="200" height="140" as="geometry"/>
-        </mxCell>
-
-        <!-- File storage -->
-        <mxCell id="storage" value="File Storage\nUploads / audio / generated files" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EEF2F5;strokeColor=#607D8B;strokeWidth=1.5;fontSize=16;" vertex="1" parent="root">
-          <mxGeometry x="980" y="300" width="200" height="90" as="geometry"/>
-        </mxCell>
-
-        <!-- External services -->
-        <mxCell id="external" value="External Services\n• Google Gemini (LLM)\n• Azure TTS\n• Adobe Embed API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF9E6;strokeColor=#F9A825;strokeWidth=1.5;fontSize=15;" vertex="1" parent="root">
-          <mxGeometry x="250" y="370" width="280" height="120" as="geometry"/>
-        </mxCell>
-
-        <!-- Docker -->
-        <mxCell id="docker" value="Docker Compose\nfrontend + backend + mongo" style="shape=folder;whiteSpace=wrap;html=1;fillColor=#F1F8E9;strokeColor=#7CB342;strokeWidth=1.5;fontSize=15;" vertex="1" parent="root">
-          <mxGeometry x="70" y="330" width="180" height="100" as="geometry"/>
-        </mxCell>
-
-        <!-- Notes -->
-        <mxCell id="note" value="Flow: User → Frontend → Backend → Document + AI services → MongoDB + File Storage" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#CBD5E1;strokeWidth=1;align=left;verticalAlign=middle;fontSize=13;padding=10;" vertex="1" parent="root">
-          <mxGeometry x="250" y="560" width="660" height="60" as="geometry"/>
-        </mxCell>
-
-        <!-- Connections -->
-        <mxCell id="e1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4B5563;strokeWidth=2;endArrow=classic;" edge="1" parent="root" source="user" target="frontend">
-          <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-
-        <mxCell id="e2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4B5563;strokeWidth=2;endArrow=classic;" edge="1" parent="root" source="frontend" target="backend">
-          <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-
-        <mxCell id="e3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4B5563;strokeWidth=2;endArrow=classic;" edge="1" parent="root" source="backend" target="services">
-          <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-
-        <mxCell id="e4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4B5563;strokeWidth=2;endArrow=classic;" edge="1" parent="root" source="services" target="mongodb">
-          <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-
-        <mxCell id="e5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4B5563;strokeWidth=2;endArrow=classic;" edge="1" parent="root" source="services" target="storage">
-          <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-
-        <mxCell id="e6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4B5563;strokeWidth=2;endArrow=classic;" edge="1" parent="root" source="services" target="external">
-          <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-
-        <mxCell id="e7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4B5563;strokeWidth=2;endArrow=classic;" edge="1" parent="root" source="docker" target="frontend">
-          <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-
-        <mxCell id="e8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4B5563;strokeWidth=2;endArrow=classic;" edge="1" parent="root" source="docker" target="backend">
-          <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-      </root>
-    </mxGraphModel>
-  </diagram>
-</mxfile>
-```
-
-To view it visually:
-- open diagrams.net
-- File → Import From → Device
-- select this file or paste the XML directly
-
-This is the actual XML used to generate the architecture diagram.
+This file contains the system architecture and user flow diagrams for the hostel management application.
 
 ---
 
-## Summary
-- Frontend: React + Vite + Adobe Embed SDK
-- Backend: FastAPI with API routes for documents, chat, TTS, mindmap, podcast
-- Core services: PDF processing, embeddings, LLM orchestration, TTS, AI features
-- Storage: MongoDB + file storage
-- External integrations: Google Gemini, Azure TTS, Adobe Embed API
-- Runtime: Docker Compose for app services
+## 1. High-Level Architecture Diagram
+
+```mermaid
+flowchart TB
+    subgraph ClientLayer[Client Layer]
+        S[Student Portal\nReact 19 + Bootstrap 5]
+        A[Admin Portal\nReact 19 + Bootstrap 5]
+    end
+
+    subgraph AppLayer[Application Layer]
+        FE[Frontend\nVite + React Router\nShared Components]
+        API[Backend\nNode.js + Express]
+        AUTH[JWT Authentication\nProtected Routes]
+        SOCKET[Socket.IO\nReal-time Chat]
+    end
+
+    subgraph BusinessLayer[Business Logic & Services]
+        R1[Student Routes]
+        R2[Admin Routes]
+        R3[Message Routes]
+        R4[Food Routes]
+        ROOM[Room Allocation\nComplaint Handling\nOutpass Approval]
+    end
+
+    subgraph DataLayer[Data Layer]
+        DB[(MongoDB)]
+        IMG[Cloudinary\nImage Storage]
+    end
+
+    S --> FE
+    A --> FE
+    FE --> API
+    API --> AUTH
+    API --> SOCKET
+    API --> R1
+    API --> R2
+    API --> R3
+    API --> R4
+    R1 --> ROOM
+    R2 --> ROOM
+    R3 --> ROOM
+    R4 --> ROOM
+
+    ROOM --> DB
+    FE --> IMG
+    API --> IMG
+    SOCKET --> DB
+```
+
+### High-Level Summary
+- Student and admin users interact with a unified React frontend.
+- All app requests are handled by a single Node.js + Express backend.
+- JWT-based authentication protects student/admin routes.
+- Real-time messaging is handled through Socket.IO.
+- MongoDB stores hostel data, and Cloudinary stores uploaded media.
+
+---
+
+## 2. Low-Level Architecture Diagram
+
+```mermaid
+flowchart LR
+    subgraph Frontend[Frontend Layer]
+        Entry[main.jsx\nRouter + Context Providers]
+        App[App.jsx\nRoute Mapping]
+        StudentLayout[StudentLayout\nStudent Pages]
+        AdminLayout[AdminLayout\nAdmin Pages]
+        Shared[ProtectedRoute\nAPI Service\nSocket.IO Client\nForm Validation]
+    end
+
+    subgraph Backend[Backend Layer]
+        Server[server.js\nExpress App + CORS + MongoDB + Socket.IO]
+        StudentAPI[student-api\nLogin / Complaints / Outpass / Profile]
+        AdminAPI[admin-api\nUsers / Rooms / Announcements / Complaints / Dashboard]
+        MessageAPI[message-api\nChat and community messaging]
+        FoodAPI[food-api\nFood management]
+        MW[Middleware\nverifyStudent / verifyAdmin / Upload / Error Handling]
+        Models[Mongoose Models\nStudent / Admin / Room / Complaint / Outpass / Message / Food / Review]
+    end
+
+    subgraph Database[Database & Storage]
+        Mongo[(MongoDB)]
+        Cloud[Cloudinary\nProfile Photos / Complaint Images / Post Images]
+    end
+
+    Entry --> App
+    App --> StudentLayout
+    App --> AdminLayout
+    StudentLayout --> Shared
+    AdminLayout --> Shared
+
+    Shared --> Server
+    Server --> StudentAPI
+    Server --> AdminAPI
+    Server --> MessageAPI
+    Server --> FoodAPI
+
+    StudentAPI --> MW
+    AdminAPI --> MW
+    MessageAPI --> MW
+    FoodAPI --> MW
+
+    MW --> Models
+    Models --> Mongo
+
+    StudentAPI --> Cloud
+    AdminAPI --> Cloud
+    MessageAPI --> Mongo
+    FoodAPI --> Mongo
+```
+
+### Low-Level Components
+- Frontend route structure:
+  - `/login` for unified login
+  - `/home/*` for student pages
+  - `/dashboard/*` for admin pages
+- Backend API modules:
+  - `/student-api` for student features
+  - `/admin-api` for admin operations
+  - `/message-api` for chat services
+  - `/food-api` for food planning and listing
+- Database models include students, rooms, outpasses, complaints, announcements, community posts, messages, food items, and reviews.
+- File uploads are managed through Multer and Cloudinary.
+
+---
+
+## 3. User Flow Diagram
+
+```mermaid
+flowchart TD
+    A[Open Portal\nlocalhost:5173] --> B[Unified Login Page]
+    B --> C{Select Portal}
+
+    C -->|Student| D[Enter Roll Number + Password]
+    C -->|Admin| E[Enter Username + Password]
+
+    D --> F[POST /student-api/login]
+    E --> G[POST /admin-api/login]
+
+    F --> H{Credentials Valid?}
+    G --> I{Credentials Valid?}
+
+    H -->|No| J[Show Error + Retry]
+    I -->|No| K[Show Error + Retry]
+
+    H -->|Yes| L[Generate JWT Token]
+    I -->|Yes| M[Generate JWT Token]
+
+    L --> N[Store Token in localStorage\nSet User Context]
+    M --> O[Store Token in localStorage\nSet Admin Context]
+
+    N --> P[Redirect to /home]
+    O --> Q[Redirect to /dashboard]
+
+    P --> R[Student Dashboard\nHome / Announcements / Community / Complaints / Outpass / Food / Profile]
+    Q --> S[Admin Dashboard\nStudents / Rooms / Announcements / Complaints / Outpasses / Community / Food]
+```
+
+### Main User Tasks Covered by the Flow
+- Student login and authentication
+- Admin login and authentication
+- Redirecting to role-specific dashboards
+- Access to all major hostel system modules
+
+---
+
+## 4. Common Feature Flow (Student & Admin)
+
+```mermaid
+flowchart LR
+    U[User] --> UI[React Frontend]
+    UI --> API[Express API]
+    API --> JWT[JWT Validation]
+    API --> MDL[Mongoose Models]
+    MDL --> DB[(MongoDB)]
+
+    UI --> FILE[Cloudinary Uploads]
+    FILE --> API
+
+    UI --> SOCKET[Socket.IO Chat]
+    SOCKET --> API
+    API --> DB
+```
+
+This flow represents the generic interaction model used across hostel management functionalities such as complaints, room operations, outpasses, announcements, and community chat.
+
+---
+
+## 5. Summary
+
+- Frontend: React 19 + Vite + Bootstrap 5 + React Router
+- Backend: Node.js + Express.js + Socket.IO
+- Authentication: JWT + Protected routes + Middleware
+- Database: MongoDB with Mongoose models
+- Storage: Cloudinary for uploaded images
+- Core modules: Student management, admin management, complaint handling, room allocation, outpass approval, announcements, community chat, and food service
+
+These diagrams can be used in documentation, presentations, or screenshots for the project architecture overview.
